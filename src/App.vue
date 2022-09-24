@@ -1,15 +1,18 @@
 <template>
-  <img alt="Vue logo" src="./assets/logo.png">
-  <HelloWorld msg="Welcome to Your Vue.js App"/>
+  <PopulationTable :population="Population"/>
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue'
+import PopulationTable from './components/PopulationTable.vue'
+import Population from "@/assets/data";
 
 export default {
   name: 'App',
+  data() {
+    return {Population}
+  },
   components: {
-    HelloWorld
+    PopulationTable
   }
 }
 </script>
@@ -21,6 +24,5 @@ export default {
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
   color: #2c3e50;
-  margin-top: 60px;
 }
 </style>
