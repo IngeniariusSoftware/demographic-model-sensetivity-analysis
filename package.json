@@ -10,6 +10,13 @@
   "dependencies": {
     "@quasar/extras": "^1.0.0",
     "core-js": "^3.8.3",
+    "d3": "^7.6.1",
+    "d3-array": "^3.2.0",
+    "d3-axis": "^3.0.0",
+    "d3-scale": "^4.0.2",
+    "d3-selection": "^3.0.0",
+    "d3-shape": "^3.1.0",
+    "d3-zoom": "^3.0.0",
     "quasar": "^2.0.0",
     "vue": "^3.2.13"
   },
@@ -19,6 +26,7 @@
     "@vue/cli-plugin-babel": "~5.0.0",
     "@vue/cli-plugin-eslint": "~5.0.0",
     "@vue/cli-service": "~5.0.0",
+    "csv-loader": "^3.0.5",
     "eslint": "^7.32.0",
     "eslint-plugin-vue": "^8.0.3",
     "sass": "1.32.12",
