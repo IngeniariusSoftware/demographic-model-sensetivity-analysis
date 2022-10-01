@@ -1,75 +1,146 @@
 <template>
-  <div class="q-pa-md row justify-start q-gutter-md">
-    <PopulationTable :country="country" :population="this.population"/>
-    <q-card class="my-card">
+  <div class="q-pa-md row q-gutter-md">
+    <PopulationTable
+        :country="country"
+        :countries="countries"
+        :population="population"
+        @countrySelected="onCountrySelected"
+    ></PopulationTable>
+    <q-card>
       <q-card-section>
         <LineChart
-            container-i-d="lineChartContainer1"
-            title="Demographic profile"
-            :labeledData="this.groupedPopulation"
-            :labeled-colors="{2016: 'red', 2021: 'steelblue'}"
-            :labeled-axis="{x: 'Age group', y: 'Population'}"
-            :margin="{top: 5, right: 13, bottom: 20, left: 54}"
-            :width="800"
-            :height="480"
-            :tickNumber=10>
-        </LineChart>
+            id="1"
+            title="Population pyramid"
+            :labeledData="groupedPopulation"
+            :labeled-colors="labeledColors"
+            :labeled-axes="{x: 'Age group', y: 'Population'}"
+            :margin="{top: 7, right: 10, bottom: 20, left: 54}"
+            :width="579"
+            :height="600"
+            :tickNumber=10
+            :transition-duration="1000"
+        ></LineChart>
       </q-card-section>
     </q-card>
+    <div>
+      <div class="row q-gutter-md">
+        <q-card>
+          <q-card-section>
+            <LineChart
+                id="2"
+                title="Demographic profile"
+                :labeledData="groupedPopulation"
+                :labeled-colors="labeledColors"
+                :labeled-axes="{x: 'Age group', y: 'Population'}"
+                :margin="{top: 7, right: 10, bottom: 20, left: 54}"
+                :width="579"
+                :height="245"
+                :tickNumber="10"
+                :transition-duration="1000"
+            ></LineChart>
+          </q-card-section>
+        </q-card>
+        <q-card>
+          <q-card-section>
+            <LineChart
+                id="3"
+                title="Survival rate"
+                :labeledData="groupedPopulation"
+                :labeled-colors="labeledColors"
+                :labeled-axes="{x: 'Age group', y: 'Population'}"
+                :margin="{top: 5, right: 13, bottom: 20, left: 54}"
+                :width="579"
+                :height="245"
+                :tickNumber=10
+                :transition-duration="1000"
+            ></LineChart>
+          </q-card-section>
+        </q-card>
+      </div>
+      <q-card style="margin-top: 15px">
+        <q-card-section>
+          <LineChart
+              id="4"
+              title="Population"
+              :labeledData="groupedPopulation"
+              :labeled-colors="labeledColors"
+              :labeled-axes="{x: 'Age group', y: 'Population'}"
+              :margin="{top: 7, right: 10, bottom: 20, left: 54}"
+              :width="1180"
+              :height="240"
+              :tickNumber=10
+              :transition-duration="1000"
+          ></LineChart>
+        </q-card-section>
+      </q-card>
+    </div>
   </div>
 </template>
 
 <script>
 import PopulationTable from './components/PopulationTable.vue'
 import LineChart from "@/components/LineChart";
-import PopulationData from '@/data/population.csv'
-
-const FiveYearAges = ['0-4', '5-9', '10-14', '15-19', '20-24', '25-29', '30-34', '35-39', '40-44', '45-49', '50-54', '55-59', '60-64', '65-69', '70-74', '75-79', '80-84', '85-89', '90-94', '95-99', '100+']
+import populationDataCSV from '@/data/population.csv'
+import {FiveYearAges} from "@/data/FiveYearAges";
 
 export default {
   name: 'App',
-  setup() {
-    const indexedCountries = indexByArea(PopulationData)
-    const country = 'Afghanistan'
-    const index = indexedCountries[country]
-    const population = PopulationData.slice(index.start, index.end).filter(x => x.year === 2016 || x.year === 2021)
-    const groupedPopulation = groupByYearData(population)
-    return {country, population, groupedPopulation, indexedCountries}
+  data() {
+    const indexedCountries = this.indexByCountry(populationDataCSV)
+    const countries = Object.keys(indexedCountries)
+    const country = countries[Math.floor(Math.random() * countries.length)]
+    const ageSelect = {start: 2016, end: 2021}
+    const labeledColors = {2016: 'steelblue', 2021: 'red'}
+    return {populationDataCSV, country, countries, indexedCountries, ageSelect, labeledColors}
   },
   components: {
     PopulationTable,
     LineChart
   },
-  methods: {}
+  computed: {
+    index() {
+      return this.indexedCountries[this.country]
+    },
+    population() {
+      return this.populationDataCSV.slice(this.index.start, this.index.end).filter(x => x.year === this.ageSelect.start || x.year === this.ageSelect.end)
+    },
+    groupedPopulation() {
+      const groupedData = {}
+      this.population.forEach(d => {
+        if (d.year in groupedData) {
+          groupedData[d.year].forEach(group => group.y = round(group.y + d[FiveYearAges[group.x]], 3))
+        } else {
+          groupedData[d.year] = Array.from(Object.keys(FiveYearAges).map(age => {
+            return {x: Number(age), y: round(d[FiveYearAges[age]], 3)}
+          }))
+        }
+      })
+      return groupedData
+    }
+  },
+  methods: {
+    indexByCountry(data) {
+      const indexedCountry = {}
+      indexedCountry[data[0].country] = {start: 0}
+      indexedCountry[data[data.length - 1].country] = {end: data.length}
+      for (let i = 1; i < data.length; i++) {
+        const lastCountry = data[i - 1].country
+        const currentCountry = data[i].country
+        if (currentCountry !== lastCountry) {
+          indexedCountry[lastCountry].end = i
+          indexedCountry[currentCountry] = {start: i}
+        }
+      }
+      return indexedCountry
+    },
+    onCountrySelected(selectedCountry) {
+      this.country = selectedCountry
+    }
+  },
 }
 
-function groupByYearData(data) {
-  const groupedData = {}
-  data.forEach(d => {
-    if (d.year in groupedData) {
-      groupedData[d.year].forEach(group => group.y += d[group.x])
-    } else {
-      groupedData[d.year] = Array.from(FiveYearAges.map(age => {
-        return {x: age, y: d[age]}
-      }))
-    }
-  })
-  return groupedData
-}
-
-function indexByArea(data) {
-  const indexedPlace = {}
-  indexedPlace[data[0].area] = {start: 0}
-  indexedPlace[data[data.length - 1].area] = {end: data.length}
-  for (let i = 1; i < data.length; i++) {
-    const lastPlace = data[i - 1].area
-    const currentPlace = data[i].area
-    if (currentPlace !== lastPlace) {
-      indexedPlace[lastPlace].end = i
-      indexedPlace[currentPlace] = {start: i}
-    }
-  }
-  return indexedPlace
+function round(float_number, number_of_decimals) {
+  return parseFloat(float_number.toFixed(number_of_decimals))
 }
 
 </script>
