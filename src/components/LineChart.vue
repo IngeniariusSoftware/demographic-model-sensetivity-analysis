@@ -1,22 +1,11 @@
 <template>
   <div>
-    <div class="unselectable" style="align-self: stretch; display: flex; margin-left: 5px; margin-right: 8px">
-      <a style="text-align: start; inline-size: 60px; font-size: 12px; overflow-wrap: break-word">{{
-          labeledAxes.y
-        }}</a>
-      <label style="margin: auto;">{{ title }}</label>
-    </div>
     <div :id="containerID.replace('#', '')"/>
-    <div class="unselectable" style="align-self: stretch; display: flex; margin-top: 5px">
-      <div style="margin-left: 42%; margin-right: auto">
-        <label v-for="(color, label) in labeledColors" :key="label">
-          <div class="circleLegend" :style="`background: ${color}`"/>
-          <label class="labelLegend unselectable">{{ label }}</label>
-        </label>
+    <div class="unselectable flex justify-center" :style="`padding-left: ${margin.left}px; margin-top: -20px`">
+      <div v-for="(color, label) in labeledColors" :key="label">
+        <div class="circleLegend" :style="`background: ${color}`"/>
+        <label class="unselectable labelLegend">{{ label }}</label>
       </div>
-      <a style="margin-right:15px; text-align: end; inline-size: 80px; font-size: 12px; overflow-wrap: break-word">{{
-          labeledAxes.x
-        }}</a>
     </div>
   </div>
 </template>
@@ -32,7 +21,8 @@ export default {
       grid: {x: Object, y: Object},
       rootGroup: Selection,
       visibleGroup: Selection,
-      tooltip: Selection,
+      tooltipLabel: undefined,
+      tooltipLines: {horizontal: undefined, vertical: undefined},
       dotsRadius: 3
     }
   },
@@ -45,8 +35,11 @@ export default {
     margin: {type: Object, required: true},
     width: {type: Number, required: true},
     height: {type: Number, required: true},
-    tickNumber: {type: Number, required: true},
-    transitionDuration: {type: Number, required: true}
+    transitionDuration: {type: Number, required: true},
+    tickNumber: {type: Number, required: false, default: 10},
+    showGrid: {type: Boolean, required: false, default: true},
+    tickFormatX: {type: Function, required: false, default: undefined},
+    tooltipType: {type: String, required: false, default: 'dots'}
   },
   computed: {
     containerID() {
@@ -84,15 +77,18 @@ export default {
   },
   mounted() {
     this.rootGroup = addRootGroup(this.containerID, this.width, this.height, this.margin)
-    const result = addAxes(this.rootGroup, this.scales, this.innerWidth, this.innerHeight, this.tickNumber)
-    this.axes = result.axes
-    this.grid = result.grid
+    if (this.showGrid) {
+      this.grid.x = addGridX(this.rootGroup, this.scales.x, this.innerHeight, this.tickNumber)
+      this.grid.y = addGridY(this.rootGroup, this.scales.y, this.innerWidth, this.tickNumber)
+    }
+    this.axes.x = addAxisX(this.rootGroup, this.scales.x, this.innerWidth, this.innerHeight, this.margin.bottom, this.labeledAxes.x, this.tickFormatX)
+    this.axes.y = addAxisY(this.rootGroup, this.scales.y, this.innerWidth, this.innerHeight, this.margin.left, this.labeledAxes.y)
+    addLegend(this.rootGroup, this.title, this.innerWidth, this.height, this.margin)
     this.addZoom(this.rootGroup, this.width, this.height, this.innerWidth, this.innerHeight, 1, 20)
     this.visibleGroup = addVisibleGroup(this.rootGroup, this.visibleAreaID, this.innerWidth, this.innerHeight)
     addLines(this.visibleGroup, this.scales, this.labeledData, this.labeledColors, 0)
     addDots(this.visibleGroup, this.scales, this.labeledData, this.labeledColors, this.dotsRadius, 0)
-    this.tooltip = addTooltip(this.containerID)
-    addTooltipDots(this.visibleGroup, this.tooltip, this.scales, this.labeledData, this.labeledAxes, this.tooltipDotRadius)
+    this.addTooltip(this.scales)
   },
   methods: {
     addZoom(group, width, height, innerWidth, innerHeight, minZoom, maxZoom) {
@@ -106,6 +102,8 @@ export default {
           .attr('height', innerHeight)
           .style('fill', 'none')
           .style('pointer-events', 'all')
+          .style('stroke-width', '0.1px')
+          .style('stroke', 'black')
           .call(zoom)
     },
     onZoomChanged(event) {
@@ -114,13 +112,27 @@ export default {
       this.updateLineChart({x: scaleX, y: scaleY}, 0)
     },
     updateLineChart(scales, transitionDuration) {
-      this.axes.x.transition().duration(transitionDuration).call(d3.axisBottom(scales.x))
-      this.grid.x.call(generateGridX(scales.x, this.height, this.tickNumber))
+      this.axes.x.transition().duration(transitionDuration).call(axisBottom(scales.x, this.tickFormatX))
       this.axes.y.transition().duration(transitionDuration).call(d3.axisLeft(scales.y))
-      this.grid.y.call(generateGridY(scales.y, this.width, this.tickNumber))
+
+      if (this.showGrid) {
+        this.grid.x.call(generateGridX(scales.x, this.innerHeight, this.tickNumber))
+        this.grid.y.call(generateGridY(scales.y, this.innerWidth, this.tickNumber))
+      }
+
       addLines(this.visibleGroup, scales, this.labeledData, this.labeledColors, transitionDuration)
       addDots(this.visibleGroup, scales, this.labeledData, this.labeledColors, this.dotsRadius, transitionDuration)
-      addTooltipDots(this.visibleGroup, this.tooltip, scales, this.labeledData, this.labeledAxes, this.tooltipDotRadius)
+      this.addTooltip(scales);
+    },
+    addTooltip(scales) {
+      if (this.tooltipType === 'dots') {
+        if (!this.tooltipLabel) {
+          this.tooltipLabel = addTooltipLabel(this.containerID)
+        }
+        addTooltipDots(this.visibleGroup, this.tooltipLabel, scales, this.labeledData, this.labeledAxes, this.tooltipDotRadius)
+      } else {
+        // addTooltipLine(this.visibleGroup)
+      }
     }
   }
 }
@@ -139,25 +151,31 @@ function addRootGroup(containerID, width, height, margin) {
       .attr('transform', `translate(${margin.left}, ${margin.top})`)
 }
 
-function addAxes(group, scales, width, height, tickNumber) {
-  const [axisX, gridX] = addAxisX(group, scales.x, height, tickNumber)
-  const [axisY, gridY] = addAxisY(group, scales.y, width, height, tickNumber)
-
-  return {axes: {x: axisX, y: axisY}, grid: {x: gridX, y: gridY}}
-}
-
-function addAxisX(group, scaleX, height, tickNumber) {
-  const gridX = group.append('g')
+function addGridX(group, scaleX, height, tickNumber) {
+  return group.append('g')
       .attr('transform', `translate(0, ${height})`)
       .call(generateGridX(scaleX, height, tickNumber))
       .attr('stroke-opacity', 0.15)
+}
 
+function addAxisX(group, scaleX, width, height, marginBottom, labelX, tickFormatX) {
   const axisX = group.append('g')
       .attr('transform', `translate(0, ${height})`)
-      .call(d3.axisBottom(scaleX))
+      .call(axisBottom(scaleX, tickFormatX))
       .attr('class', 'unselectable')
 
-  return [axisX, gridX]
+  axisX.append('text')
+      .attr('x', width)
+      .attr('y', marginBottom - 2)
+      .attr('fill', 'black')
+      .attr('text-anchor', 'end')
+      .text(`${labelX} →`)
+
+  return axisX
+}
+
+function axisBottom(scaleX, tickFormatX) {
+  return tickFormatX ? d3.axisBottom(scaleX).tickFormat(tickFormatX) : d3.axisBottom(scaleX)
 }
 
 function generateGridX(scaleX, height, tickNumber) {
@@ -167,16 +185,25 @@ function generateGridX(scaleX, height, tickNumber) {
       .tickSize(-height, 0)
 }
 
-function addAxisY(group, scaleY, width, height, tickNumber) {
-  const gridY = group.append('g')
+function addGridY(group, scaleY, width, tickNumber) {
+  return group.append('g')
       .call(generateGridY(scaleY, width, tickNumber))
       .attr('stroke-opacity', 0.15)
+}
 
+function addAxisY(group, scaleY, width, height, marginLeft, labelY) {
   const axisY = group.append('g')
       .call(d3.axisLeft(scaleY))
       .attr('class', 'unselectable')
 
-  return [axisY, gridY]
+  axisY.append('text')
+      .attr('x', -marginLeft)
+      .attr('y', -9)
+      .attr('fill', 'black')
+      .attr('text-anchor', 'start')
+      .text(`↑ ${labelY}`)
+
+  return axisY
 }
 
 function generateGridY(scaleY, width, tickNumber) {
@@ -184,6 +211,17 @@ function generateGridY(scaleY, width, tickNumber) {
       .ticks(tickNumber)
       .tickFormat('')
       .tickSize(-width, 0)
+}
+
+function addLegend(group, title, innerWidth) {
+  group.append('text')
+      .attr('x', innerWidth * 0.5)
+      .attr('y', -7)
+      .attr('fill', 'black')
+      .attr('text-anchor', 'middle')
+      .attr('font-weight', '600')
+      .attr('class', 'unselectable')
+      .text(title)
 }
 
 function addVisibleGroup(group, id, width, height) {
@@ -269,7 +307,7 @@ function addTooltipDots(group, tooltip, scales, labeledData, labeledAxis, radius
   tooltipDotsSelection.exit().remove()
 }
 
-function addTooltip(id) {
+function addTooltipLabel(id) {
   return d3.select(id)
       .append('div')
       .attr('class', 'unselectable')
@@ -280,13 +318,33 @@ function addTooltip(id) {
       .style('border-radius', '5px')
       .style('padding', '5px')
       .style('position', 'absolute')
+      .style('z-index', '100')
 }
+//
+// function addTooltipLine(group, width, height) {
+//   group.append('rect')
+//       .attr('width', width)
+//       .attr('height', height)
+//       .style('fill', 'none')
+//       .style('pointer-events', 'all')
+//       .on('mousemove', (event, d) => {
+//         tooltip.html(`${labeledAxis.y}: ${d.y}<br/>${labeledAxis.x}: ${d.x}`)
+//             .style('left', `${event.layerX + 20}px`)
+//             .style('top', `${event.layerY - 5}px`)
+//       })
+// }
+//
+// function addTooltipRect(group, width, height) {
+//
+// }
+
 
 </script>
 
 <style>
 .labelLegend {
-  margin-right: 15px;
+  margin-right: 10px;
+  font-size: 14px;
 }
 
 .circleLegend {
@@ -297,4 +355,5 @@ function addTooltip(id) {
   border-radius: 50%;
   background: #1D1D1D;
 }
+
 </style>

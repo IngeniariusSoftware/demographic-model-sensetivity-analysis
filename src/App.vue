@@ -3,20 +3,20 @@
     <PopulationTable
         :country="country"
         :countries="countries"
-        :population="population"
+        :population="countryPopulationYearSelect"
         @countrySelected="onCountrySelected"
     ></PopulationTable>
     <q-card>
-      <q-card-section>
+      <q-card-section style="padding: 8px">
         <LineChart
             id="1"
             title="Population pyramid"
-            :labeledData="groupedPopulation"
-            :labeled-colors="labeledColors"
+            :labeledData="countryDemographicProfileData"
+            :labeled-colors="{}"
             :labeled-axes="{x: 'Age group', y: 'Population'}"
-            :margin="{top: 7, right: 10, bottom: 20, left: 54}"
+            :margin="margin"
             :width="579"
-            :height="600"
+            :height="655"
             :tickNumber=10
             :transition-duration="1000"
         ></LineChart>
@@ -25,32 +25,32 @@
     <div>
       <div class="row q-gutter-md">
         <q-card>
-          <q-card-section>
+          <q-card-section style="padding: 8px">
             <LineChart
                 id="2"
                 title="Demographic profile"
-                :labeledData="groupedPopulation"
-                :labeled-colors="labeledColors"
+                :labeledData="countryDemographicProfileData"
+                :labeled-colors="demographicProfileLabeledColors"
                 :labeled-axes="{x: 'Age group', y: 'Population'}"
-                :margin="{top: 7, right: 10, bottom: 20, left: 54}"
-                :width="579"
-                :height="245"
+                :margin="margin"
+                :width="600"
+                :height="304"
                 :tickNumber="10"
                 :transition-duration="1000"
             ></LineChart>
           </q-card-section>
         </q-card>
         <q-card>
-          <q-card-section>
+          <q-card-section style="padding: 8px">
             <LineChart
                 id="3"
-                title="Survival rate"
-                :labeledData="groupedPopulation"
-                :labeled-colors="labeledColors"
-                :labeled-axes="{x: 'Age group', y: 'Population'}"
-                :margin="{top: 5, right: 13, bottom: 20, left: 54}"
-                :width="579"
-                :height="245"
+                :title="`Survival rate ${this.ageSelect.start}→${this.ageSelect.end}`"
+                :labeledData="countrySurvivalRateData"
+                :labeled-colors="survivalRateLabeledColors"
+                :labeled-axes="{x: 'Age group', y: 'Survival rate'}"
+                :margin="margin"
+                :width="600"
+                :height="304"
                 :tickNumber=10
                 :transition-duration="1000"
             ></LineChart>
@@ -58,18 +58,19 @@
         </q-card>
       </div>
       <q-card style="margin-top: 15px">
-        <q-card-section>
+        <q-card-section style="padding: 8px">
           <LineChart
               id="4"
               title="Population"
-              :labeledData="groupedPopulation"
-              :labeled-colors="labeledColors"
-              :labeled-axes="{x: 'Age group', y: 'Population'}"
-              :margin="{top: 7, right: 10, bottom: 20, left: 54}"
-              :width="1180"
-              :height="240"
-              :tickNumber=10
+              :labeledData="countryPopulationGroupByYearData"
+              :labeled-colors="populationLabeledColors"
+              :labeled-axes="{x: 'Year', y: 'Population'}"
+              :margin="margin"
+              :width="1220"
+              :height="310"
               :transition-duration="1000"
+              :show-grid="false"
+              :tick-format-x="d => d"
           ></LineChart>
         </q-card-section>
       </q-card>
@@ -90,8 +91,8 @@ export default {
     const countries = Object.keys(indexedCountries)
     const country = countries[Math.floor(Math.random() * countries.length)]
     const ageSelect = {start: 2016, end: 2021}
-    const labeledColors = {2016: 'steelblue', 2021: 'red'}
-    return {populationDataCSV, country, countries, indexedCountries, ageSelect, labeledColors}
+    const margin = {top: 17, right: 12, bottom: 32, left: 54}
+    return {populationDataCSV, country, countries, indexedCountries, ageSelect, margin}
   },
   components: {
     PopulationTable,
@@ -101,20 +102,62 @@ export default {
     index() {
       return this.indexedCountries[this.country]
     },
-    population() {
-      return this.populationDataCSV.slice(this.index.start, this.index.end).filter(x => x.year === this.ageSelect.start || x.year === this.ageSelect.end)
+    demographicProfileLabeledColors() {
+      return {[this.ageSelect.start]: 'orange', [this.ageSelect.end]: 'red'}
     },
-    groupedPopulation() {
+    populationLabeledColors() {
+      return {[this.country]: 'green'}
+    },
+    survivalRateLabeledColors() {
+      return {Female: 'pink', Male: 'steelblue'}
+    },
+    countryPopulation() {
+      return this.populationDataCSV.slice(this.index.start, this.index.end)
+    },
+    countryPopulationYearSelect() {
+      return this.countryPopulation.filter(x => x.year === this.ageSelect.start || x.year === this.ageSelect.end)
+    },
+    countryDemographicProfileData() {
       const groupedData = {}
-      this.population.forEach(d => {
+      this.countryPopulationYearSelect.forEach(d => {
         if (d.year in groupedData) {
           groupedData[d.year].forEach(group => group.y = round(group.y + d[FiveYearAges[group.x]], 3))
         } else {
-          groupedData[d.year] = Array.from(Object.keys(FiveYearAges).map(age => {
-            return {x: Number(age), y: round(d[FiveYearAges[age]], 3)}
+          groupedData[d.year] = Array.from(Object.entries(FiveYearAges).map(([key, value]) => {
+            return {x: Number(key), y: round(d[value], 3)}
           }))
         }
       })
+
+      return groupedData
+    },
+    countryPopulationGroupByYearData() {
+      const groupedData = {}
+      groupedData[this.country] = []
+      for (let i = this.countryPopulation.length - 2; i > 0; i -= 10) {
+        let yearPopulation = 0
+        const female = this.countryPopulation[i]
+        const male = this.countryPopulation[i + 1]
+        Object.values(FiveYearAges).forEach(age => yearPopulation += male[age] + female[age])
+        groupedData[this.country].push({x: this.countryPopulation[i].year, y: round(yearPopulation, 3)})
+      }
+
+      return groupedData
+    },
+    countrySurvivalRateData() {
+      const groupedData = {Female: [], Male: []}
+      const femaleYearStart = this.countryPopulationYearSelect[0]
+      const femaleYearEnd = this.countryPopulationYearSelect[2]
+      const maleYearStart = this.countryPopulationYearSelect[1]
+      const maleYearEnd = this.countryPopulationYearSelect[3]
+      groupedData.Female = Array.from(Object.values(FiveYearAges).map((age, i, ages) => {
+        return {x: parseInt(age), y: getSurvivalRate(femaleYearStart[age], femaleYearEnd[ages[i + 1]])}
+      }))
+      groupedData.Female.pop()
+      groupedData.Male = Array.from(Object.values(FiveYearAges).map((age, i, ages) => {
+        return {x: parseInt(age), y: getSurvivalRate(maleYearStart[age], maleYearEnd[ages[i + 1]])}
+      }))
+      groupedData.Male.pop()
       return groupedData
     }
   },
@@ -137,6 +180,11 @@ export default {
       this.country = selectedCountry
     }
   },
+}
+
+function getSurvivalRate(start, end) {
+  const value = end / start
+  return isNaN(value) ? 0.0 : round(value, 3)
 }
 
 function round(float_number, number_of_decimals) {

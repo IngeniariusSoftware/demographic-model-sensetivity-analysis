@@ -9,7 +9,7 @@
       :virtual-scroll-sticky-size-start="48"
       hide-bottom>
     <template v-slot:top>
-      <a>Population {{ country }} from {{ yearExtent }} in thousands</a>
+      <a>Population {{ country }} {{ yearExtent }} in thousands</a>
       <q-space/>
       <q-select
           outlined
@@ -60,7 +60,7 @@ export default {
     },
     yearExtent() {
       const extent = d3.extent(this.rows?.map(x => x.year))
-      return extent[0] !== extent[1] ? extent.join(' to ') : extent[0]
+      return extent[0] !== extent[1] ? extent.join('→') : extent[0]
     },
   },
   methods: {
