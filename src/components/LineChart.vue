@@ -22,8 +22,8 @@ export default {
       rootGroup: Selection,
       visibleGroup: Selection,
       tooltipLabel: undefined,
-      tooltipLines: {horizontal: undefined, vertical: undefined},
-      dotsRadius: 3
+      zoomRect: undefined,
+      tooltipLines: {horizontal: undefined, vertical: undefined}
     }
   },
   props: {
@@ -35,11 +35,14 @@ export default {
     margin: {type: Object, required: true},
     width: {type: Number, required: true},
     height: {type: Number, required: true},
-    transitionDuration: {type: Number, required: true},
+    transitionDuration: {type: Number, required: false, default: 1000},
     tickNumber: {type: Number, required: false, default: 10},
     showGrid: {type: Boolean, required: false, default: true},
+    showDots: {type: Boolean, required: false, default: true},
+    dotsRadius: {type: Number, required: false, default: 3},
     tickFormatX: {type: Function, required: false, default: undefined},
-    tooltipType: {type: String, required: false, default: 'dots'}
+    tooltipType: {type: String, required: false, default: 'dots'},
+    selectedX: {type: Number, required: false}
   },
   computed: {
     containerID() {
@@ -59,6 +62,9 @@ export default {
     },
     dataXY() {
       return Object.values(this.labeledData).reduce((result, d) => result.concat(d), [])
+    },
+    firstDatum() {
+     return Object.values(this.labeledData)[0].reverse()
     },
     scales() {
       const scaleX = d3.scaleLinear()
@@ -87,7 +93,9 @@ export default {
     this.addZoom(this.rootGroup, this.width, this.height, this.innerWidth, this.innerHeight, 1, 20)
     this.visibleGroup = addVisibleGroup(this.rootGroup, this.visibleAreaID, this.innerWidth, this.innerHeight)
     addLines(this.visibleGroup, this.scales, this.labeledData, this.labeledColors, 0)
-    addDots(this.visibleGroup, this.scales, this.labeledData, this.labeledColors, this.dotsRadius, 0)
+    if (this.showDots) {
+      addDots(this.visibleGroup, this.scales, this.labeledData, this.labeledColors, this.dotsRadius, 0)
+    }
     this.addTooltip(this.scales)
   },
   methods: {
@@ -97,7 +105,7 @@ export default {
           .translateExtent([[0, 0], [width, height]])
           .on('zoom', this.onZoomChanged)
 
-      group.append('rect')
+      this.zoomRect = group.append('rect')
           .attr('width', innerWidth)
           .attr('height', innerHeight)
           .style('fill', 'none')
@@ -121,7 +129,11 @@ export default {
       }
 
       addLines(this.visibleGroup, scales, this.labeledData, this.labeledColors, transitionDuration)
-      addDots(this.visibleGroup, scales, this.labeledData, this.labeledColors, this.dotsRadius, transitionDuration)
+
+      if (this.showDots) {
+        addDots(this.visibleGroup, scales, this.labeledData, this.labeledColors, this.dotsRadius, transitionDuration)
+      }
+
       this.addTooltip(scales);
     },
     addTooltip(scales) {
@@ -129,9 +141,14 @@ export default {
         if (!this.tooltipLabel) {
           this.tooltipLabel = addTooltipLabel(this.containerID)
         }
-        addTooltipDots(this.visibleGroup, this.tooltipLabel, scales, this.labeledData, this.labeledAxes, this.tooltipDotRadius)
+        addTooltipDots(this.visibleGroup, this.tooltipLabel, scales, this.labeledData, this.labeledColors, this.labeledAxes, this.tooltipDotRadius)
+      } else if (this.tooltipType === 'lines') {
+        if (!this.tooltipLines.horizontal) {
+          this.tooltipLines = addTooltipLines(this.visibleGroup, this.innerWidth, this.innerHeight)
+        }
+        bindTooltipRectWithLines(this.zoomRect, this.tooltipLines, scales, this.margin, this.firstDatum)
       } else {
-        // addTooltipLine(this.visibleGroup)
+        console.warn(`Wrong tooltip type value: ${this.tooltipType}`)
       }
     }
   }
@@ -279,7 +296,7 @@ function addDots(group, scales, labeledData, labeledColors, radius, duration) {
   dotsSelection.exit().remove()
 }
 
-function addTooltipDots(group, tooltip, scales, labeledData, labeledAxis, radius) {
+function addTooltipDots(group, tooltip, scales, labeledData, labeledColors, labeledAxis, radius) {
   const tooltipDotsGroupID = '#tooltipDots'
   let tooltipDotsGroupSelection = group.selectAll(tooltipDotsGroupID).data(Object.entries(labeledData))
   tooltipDotsGroupSelection.enter()
@@ -290,7 +307,9 @@ function addTooltipDots(group, tooltip, scales, labeledData, labeledAxis, radius
   tooltipDotsGroupSelection.exit().remove()
 
   tooltipDotsGroupSelection = group.selectAll(tooltipDotsGroupID).data(Object.entries(labeledData))
-  const tooltipDotsSelection = tooltipDotsGroupSelection.selectAll('circle').data(([, data]) => data)
+  const tooltipDotsSelection = tooltipDotsGroupSelection.selectAll('circle').data(([label, data]) => data.map(d => {
+    return {x: d.x, y: d.y, color: labeledColors[label]}
+  }))
   tooltipDotsSelection.enter()
       .append('circle')
       .attr('r', radius)
@@ -302,6 +321,7 @@ function addTooltipDots(group, tooltip, scales, labeledData, labeledAxis, radius
         tooltip.html(`${labeledAxis.y}: ${d.y}<br/>${labeledAxis.x}: ${d.x}`)
             .style('left', `${event.layerX + 20}px`)
             .style('top', `${event.layerY - 5}px`)
+            .style('border-color', d.color)
       })
       .on('mouseout', () => tooltip.transition().duration(200).style('opacity', 0))
   tooltipDotsSelection.exit().remove()
@@ -310,7 +330,7 @@ function addTooltipDots(group, tooltip, scales, labeledData, labeledAxis, radius
 function addTooltipLabel(id) {
   return d3.select(id)
       .append('div')
-      .attr('class', 'unselectable')
+      .classed('unselectable', true)
       .style('opacity', 0)
       .style('background-color', 'white')
       .style('border', 'solid')
@@ -320,24 +340,43 @@ function addTooltipLabel(id) {
       .style('position', 'absolute')
       .style('z-index', '100')
 }
-//
-// function addTooltipLine(group, width, height) {
-//   group.append('rect')
-//       .attr('width', width)
-//       .attr('height', height)
-//       .style('fill', 'none')
-//       .style('pointer-events', 'all')
-//       .on('mousemove', (event, d) => {
-//         tooltip.html(`${labeledAxis.y}: ${d.y}<br/>${labeledAxis.x}: ${d.x}`)
-//             .style('left', `${event.layerX + 20}px`)
-//             .style('top', `${event.layerY - 5}px`)
-//       })
-// }
-//
-// function addTooltipRect(group, width, height) {
-//
-// }
 
+function bindTooltipRectWithLines(rect, lines, scales, margin, data) {
+  rect.on('mousemove', (event) => {
+    const left = margin.left + 8
+    const rawX = scales.x.invert(event.layerX - left);
+    const i = d3.bisector(d => d.x).center(data, rawX);
+    console.log(i, scales.y(data[i].y), scales.x(data[i].x))
+    lines.horizontal
+        .attr('y1', scales.y(data[i].y))
+        .attr('y2', scales.y(data[i].y))
+    lines.vertical
+        .attr('x1', scales.x(data[i].x))
+        .attr('x2', scales.x(data[i].x))
+  })
+      .on('click', (event) => console.log(event))
+}
+
+function addTooltipLines(group, width, height) {
+  const groupLines = group.append('g')
+      .classed('strokeLinesGroup', true)
+
+  const horizontal = appendLine(groupLines, 0, 100, width, 100)
+      .style('stroke', 'black')
+
+  const vertical = appendLine(groupLines, 100, 0, 100, height)
+      .style('stroke', 'black')
+
+  return {horizontal, vertical}
+}
+
+function appendLine(group, x1, y1, x2, y2) {
+  return group.append('line')
+      .attr('x1', x1)
+      .attr('y1', y1)
+      .attr('x2', x2)
+      .attr('y2', y2)
+}
 
 </script>
 
@@ -354,6 +393,12 @@ function addTooltipLabel(id) {
   height: 10px;
   border-radius: 50%;
   background: #1D1D1D;
+}
+
+.strokeLinesGroup {
+  stroke-dasharray: 1 2;
+  stroke-width: 1px;
+  pointer-events: none;
 }
 
 </style>

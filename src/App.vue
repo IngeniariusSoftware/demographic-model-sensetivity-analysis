@@ -12,13 +12,11 @@
             id="1"
             title="Population pyramid"
             :labeledData="countryDemographicProfileData"
-            :labeled-colors="{}"
+            :labeled-colors="demographicProfileLabeledColors"
             :labeled-axes="{x: 'Age group', y: 'Population'}"
             :margin="margin"
             :width="579"
-            :height="655"
-            :tickNumber=10
-            :transition-duration="1000"
+            :height="660"
         ></LineChart>
       </q-card-section>
     </q-card>
@@ -35,8 +33,6 @@
                 :margin="margin"
                 :width="600"
                 :height="304"
-                :tickNumber="10"
-                :transition-duration="1000"
             ></LineChart>
           </q-card-section>
         </q-card>
@@ -51,8 +47,6 @@
                 :margin="margin"
                 :width="600"
                 :height="304"
-                :tickNumber=10
-                :transition-duration="1000"
             ></LineChart>
           </q-card-section>
         </q-card>
@@ -68,9 +62,10 @@
               :margin="margin"
               :width="1220"
               :height="310"
-              :transition-duration="1000"
               :show-grid="false"
               :tick-format-x="d => d"
+              :show-dots="false"
+              tooltip-type="lines"
           ></LineChart>
         </q-card-section>
       </q-card>
