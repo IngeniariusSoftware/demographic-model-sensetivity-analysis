@@ -65,7 +65,9 @@
               :show-grid="false"
               :tick-format-x="d => d"
               :show-dots="false"
+              :selected-x="year"
               tooltip-type="lines"
+              @xSelected="onYearSelected"
           ></LineChart>
         </q-card-section>
       </q-card>
@@ -87,7 +89,8 @@ export default {
     const country = countries[Math.floor(Math.random() * countries.length)]
     const ageSelect = {start: 2016, end: 2021}
     const margin = {top: 17, right: 12, bottom: 32, left: 54}
-    return {populationDataCSV, country, countries, indexedCountries, ageSelect, margin}
+    const year = populationDataCSV[0].year
+    return {populationDataCSV, country, countries, indexedCountries, ageSelect, margin, year}
   },
   components: {
     PopulationTable,
@@ -173,6 +176,9 @@ export default {
     },
     onCountrySelected(selectedCountry) {
       this.country = selectedCountry
+    },
+    onYearSelected(year) {
+      this.year = year
     }
   },
 }

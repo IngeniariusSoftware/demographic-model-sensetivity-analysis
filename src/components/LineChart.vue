@@ -3,8 +3,8 @@
     <div :id="containerID.replace('#', '')"/>
     <div class="unselectable flex justify-center" :style="`padding-left: ${margin.left}px; margin-top: -20px`">
       <div v-for="(color, label) in labeledColors" :key="label">
-        <div class="circleLegend" :style="`background: ${color}`"/>
-        <label class="unselectable labelLegend">{{ label }}</label>
+        <div class="legendColorCircle" :style="`background: ${color}`"/>
+        <label class="unselectable legendLabel">{{ label }}</label>
       </div>
     </div>
   </div>
@@ -23,6 +23,7 @@ export default {
       visibleGroup: Selection,
       tooltipLabel: undefined,
       zoomRect: undefined,
+      rawSelectedX: Number,
       tooltipLines: {horizontal: undefined, vertical: undefined}
     }
   },
@@ -42,7 +43,12 @@ export default {
     dotsRadius: {type: Number, required: false, default: 3},
     tickFormatX: {type: Function, required: false, default: undefined},
     tooltipType: {type: String, required: false, default: 'dots'},
-    selectedX: {type: Number, required: false}
+    selectedX: {type: Number, required: false},
+    zoom: {
+      type: Object, required: false, default: () => {
+        return {min: 1, max: 10}
+      }
+    }
   },
   computed: {
     containerID() {
@@ -64,7 +70,8 @@ export default {
       return Object.values(this.labeledData).reduce((result, d) => result.concat(d), [])
     },
     firstDatum() {
-     return Object.values(this.labeledData)[0].reverse()
+      
+      return Object.values(this.labeledData)[0].reverse()
     },
     scales() {
       const scaleX = d3.scaleLinear()
@@ -78,7 +85,8 @@ export default {
   },
   watch: {
     labeledData() {
-      this.updateLineChart(this.scales, this.transitionDuration)
+      this.updateLineChart(this.scales, this.transitionDuration, this.selectedX)
+      console.log(this.labeledData)
     }
   },
   mounted() {
@@ -90,13 +98,13 @@ export default {
     this.axes.x = addAxisX(this.rootGroup, this.scales.x, this.innerWidth, this.innerHeight, this.margin.bottom, this.labeledAxes.x, this.tickFormatX)
     this.axes.y = addAxisY(this.rootGroup, this.scales.y, this.innerWidth, this.innerHeight, this.margin.left, this.labeledAxes.y)
     addLegend(this.rootGroup, this.title, this.innerWidth, this.height, this.margin)
-    this.addZoom(this.rootGroup, this.width, this.height, this.innerWidth, this.innerHeight, 1, 20)
+    this.addZoom(this.rootGroup, this.width, this.height, this.innerWidth, this.innerHeight, this.zoom.min, this.zoom.max)
     this.visibleGroup = addVisibleGroup(this.rootGroup, this.visibleAreaID, this.innerWidth, this.innerHeight)
     addLines(this.visibleGroup, this.scales, this.labeledData, this.labeledColors, 0)
     if (this.showDots) {
       addDots(this.visibleGroup, this.scales, this.labeledData, this.labeledColors, this.dotsRadius, 0)
     }
-    this.addTooltip(this.scales)
+    this.addTooltip(this.scales, this.selectedX)
   },
   methods: {
     addZoom(group, width, height, innerWidth, innerHeight, minZoom, maxZoom) {
@@ -108,18 +116,15 @@ export default {
       this.zoomRect = group.append('rect')
           .attr('width', innerWidth)
           .attr('height', innerHeight)
-          .style('fill', 'none')
-          .style('pointer-events', 'all')
-          .style('stroke-width', '0.1px')
-          .style('stroke', 'black')
+          .classed('zoomRect', true)
           .call(zoom)
     },
     onZoomChanged(event) {
       const scaleX = event.transform.rescaleX(this.scales.x)
       const scaleY = event.transform.rescaleY(this.scales.y)
-      this.updateLineChart({x: scaleX, y: scaleY}, 0)
+      this.updateLineChart({x: scaleX, y: scaleY}, 0, this.rawSelectedX)
     },
-    updateLineChart(scales, transitionDuration) {
+    updateLineChart(scales, transitionDuration, currentX) {
       this.axes.x.transition().duration(transitionDuration).call(axisBottom(scales.x, this.tickFormatX))
       this.axes.y.transition().duration(transitionDuration).call(d3.axisLeft(scales.y))
 
@@ -134,9 +139,9 @@ export default {
         addDots(this.visibleGroup, scales, this.labeledData, this.labeledColors, this.dotsRadius, transitionDuration)
       }
 
-      this.addTooltip(scales);
+      this.addTooltip(scales, currentX, transitionDuration);
     },
-    addTooltip(scales) {
+    addTooltip(scales, currentX, transitionDuration) {
       if (this.tooltipType === 'dots') {
         if (!this.tooltipLabel) {
           this.tooltipLabel = addTooltipLabel(this.containerID)
@@ -146,7 +151,8 @@ export default {
         if (!this.tooltipLines.horizontal) {
           this.tooltipLines = addTooltipLines(this.visibleGroup, this.innerWidth, this.innerHeight)
         }
-        bindTooltipRectWithLines(this.zoomRect, this.tooltipLines, scales, this.margin, this.firstDatum)
+        bindTooltipRectWithLines(this.zoomRect, this.tooltipLines, scales, this.margin.left + 8, this.firstDatum, (x) => this.rawSelectedX = x,
+            (d) => this.$emit('xSelected', d.x), () => this.selectedX, currentX, transitionDuration)
       } else {
         console.warn(`Wrong tooltip type value: ${this.tooltipType}`)
       }
@@ -330,43 +336,14 @@ function addTooltipDots(group, tooltip, scales, labeledData, labeledColors, labe
 function addTooltipLabel(id) {
   return d3.select(id)
       .append('div')
-      .classed('unselectable', true)
-      .style('opacity', 0)
-      .style('background-color', 'white')
-      .style('border', 'solid')
-      .style('border-width', '2px')
-      .style('border-radius', '5px')
-      .style('padding', '5px')
-      .style('position', 'absolute')
-      .style('z-index', '100')
-}
-
-function bindTooltipRectWithLines(rect, lines, scales, margin, data) {
-  rect.on('mousemove', (event) => {
-    const left = margin.left + 8
-    const rawX = scales.x.invert(event.layerX - left);
-    const i = d3.bisector(d => d.x).center(data, rawX);
-    console.log(i, scales.y(data[i].y), scales.x(data[i].x))
-    lines.horizontal
-        .attr('y1', scales.y(data[i].y))
-        .attr('y2', scales.y(data[i].y))
-    lines.vertical
-        .attr('x1', scales.x(data[i].x))
-        .attr('x2', scales.x(data[i].x))
-  })
-      .on('click', (event) => console.log(event))
+      .classed('unselectable tooltipLabel', true)
 }
 
 function addTooltipLines(group, width, height) {
   const groupLines = group.append('g')
       .classed('strokeLinesGroup', true)
-
   const horizontal = appendLine(groupLines, 0, 100, width, 100)
-      .style('stroke', 'black')
-
   const vertical = appendLine(groupLines, 100, 0, 100, height)
-      .style('stroke', 'black')
-
   return {horizontal, vertical}
 }
 
@@ -378,15 +355,48 @@ function appendLine(group, x1, y1, x2, y2) {
       .attr('y2', y2)
 }
 
+function bindTooltipRectWithLines(rect, lines, scales, biasX, data, onMouseMove, onClick, selectedXFunc, currentX, transitionDuration) {
+  arrangeTooltipLines(lines, scales, getDatumFromX(data, currentX), transitionDuration)
+  rect.on('mousemove', (event) => {
+    onMouseMove(getDatumFromMouseX(scales.x, event.layerX, data, biasX).x)
+    arrangeTooltipLines(lines, scales, getDatumFromMouseX(scales.x, event.layerX, data, biasX))
+  })
+      .on('click', (event) => onClick(getDatumFromMouseX(scales.x, event.layerX, data, biasX)))
+      .on('mouseout', () => arrangeTooltipLines(lines, scales, getDatumFromX(data, selectedXFunc())))
+}
+
+function getDatumFromMouseX(scaleX, mouseX, data, biasX) {
+  const rawX = scaleX.invert(mouseX - biasX)
+  return getDatumFromX(data, rawX)
+}
+
+function getDatumFromX(data, rawX) {
+  const i = d3.bisector(d => d.x).center(data, rawX)
+  return data[i]
+}
+
+function arrangeTooltipLines(lines, scales, data, transitionDuration = 0) {
+  lines.horizontal
+      .transition()
+      .duration(transitionDuration)
+      .attr('y1', scales.y(data.y))
+      .attr('y2', scales.y(data.y))
+  lines.vertical
+      .transition()
+      .duration(transitionDuration)
+      .attr('x1', scales.x(data.x))
+      .attr('x2', scales.x(data.x))
+}
+
 </script>
 
 <style>
-.labelLegend {
+.legendLabel {
   margin-right: 10px;
   font-size: 14px;
 }
 
-.circleLegend {
+.legendColorCircle {
   margin-right: 5px;
   display: inline-block;
   width: 10px;
@@ -399,6 +409,25 @@ function appendLine(group, x1, y1, x2, y2) {
   stroke-dasharray: 1 2;
   stroke-width: 1px;
   pointer-events: none;
+  stroke: black;
 }
+
+.tooltipLabel {
+  opacity: 0;
+  background-color: white;
+  border: 2px solid;
+  border-radius: 5px;
+  padding: 5px;
+  position: absolute;
+  z-index: 100;
+}
+
+.zoomRect {
+  fill: none;
+  pointer-events: all;
+  stroke-width: 0.2px;
+  stroke: black;
+}
+
 
 </style>
