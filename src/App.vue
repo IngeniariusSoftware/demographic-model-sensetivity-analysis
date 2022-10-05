@@ -90,7 +90,6 @@ import LinesChart from "@/components/LinesChart";
 import populationDataCSV from '@/data/population.csv'
 import {FiveYearAges} from "@/data/FiveYearAges";
 import TwoValuesPyramid from "@/components/TwoValuesPyramid";
-import {ref} from 'vue'
 
 export default {
   name: 'App',
@@ -101,10 +100,10 @@ export default {
     const stepYear = 5
     const ageSelect = {start: 2016, end: 2021}
     const margin = {top: 17, right: 12, bottom: 32, left: 54}
-    const selectedYear = populationDataCSV[0].year
     const maxYear = 2021
-    const minYear = maxYear - (Math.floor((maxYear - selectedYear) / stepYear) * stepYear)
-    return {populationDataCSV, selectedCountry: ref(selectedCountry), countries, indexedCountries, ageSelect, margin, selectedYear, stepYear, minYear, maxYear}
+    const minYear = maxYear - (Math.floor((maxYear - populationDataCSV[0].year) / stepYear) * stepYear)
+    const selectedYear = minYear
+    return {populationDataCSV, selectedCountry, countries, indexedCountries, ageSelect, margin, selectedYear, stepYear, minYear, maxYear}
   },
   components: {
     TwoValuesPyramid,
@@ -122,7 +121,7 @@ export default {
       return {[this.selectedCountry]: 'green'}
     },
     femaleMaleLabeledColors() {
-      return {Female: '#EE7989', Male: 'steelblue'}
+      return {Female: '#ee7989', Male: '#4682B4', overFemale: '#c7223b', overMale: '#0d4979'}
     },
     countryPopulation() {
       return this.populationDataCSV.slice(this.index.start, this.index.end)

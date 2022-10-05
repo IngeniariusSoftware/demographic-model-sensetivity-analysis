@@ -1,7 +1,5 @@
 <template>
-  <div>
-    <div :id="containerID.replace('#', '')"/>
-  </div>
+  <div :id="containerID.replace('#', '')"/>
 </template>
 
 <script>
@@ -81,10 +79,9 @@ export default {
     this.axes.y = addAxisY(this.rootGroup, this.scales.y, this.innerWidth, this.innerHeight, this.margin.left, this.labeledAxes.y)
     this.titleText = addTitle(this.rootGroup, this.title, this.innerWidth, this.height, this.margin)
     this.pointersRect = addPointersRect(this.rootGroup, this.innerWidth, this.innerHeight)
-    addLeftRightBars(this.rootGroup, this.scales, this.innerWidth, this.labeledData, this.labeledColors, 0)
+    addLeftRightBars(this.rootGroup, this.scales, this.labeledData, this.labeledColors, 0)
     this.tooltipRect = addTooltipRect(this.rootGroup, this.innerWidth)
-    this.tooltipLabels.left = addTooltipLabels(this.rootGroup, this.scales.rightX, Object.values(this.labeledColors)[0], 'left')
-    this.tooltipLabels.right = addTooltipLabels(this.rootGroup, this.scales.rightX, Object.values(this.labeledColors)[1], 'right')
+    this.tooltipLabels = addTooltipLabels(this.rootGroup, this.scales.rightX, this.labeledColors)
     bindTooltipRectWithLabels(this.pointersRect, this.tooltipRect, this.tooltipLabels, this.scales.y, this.margin.top, this.labeledData[0][1], this.labeledData[1][1])
   },
   methods: {
@@ -92,7 +89,7 @@ export default {
       this.axes.leftX.transition().duration(this.transitionDuration).call(axisBottom(this.scales.leftX, this.tickFormatX, this.tickNumberX))
       this.axes.rightX.transition().duration(this.transitionDuration).call(axisBottom(this.scales.rightX, this.tickFormatX, this.tickNumberX))
       this.axes.y.transition().duration(this.transitionDuration).call(axisLeft(this.scales.y, this.tickNumberY))
-      addLeftRightBars(this.rootGroup, this.scales, this.innerWidth, this.labeledData, this.labeledColors, this.transitionDuration)
+      addLeftRightBars(this.rootGroup, this.scales, this.labeledData, this.labeledColors, this.transitionDuration)
       bindTooltipRectWithLabels(this.pointersRect, this.tooltipRect, this.tooltipLabels, this.scales.y, this.margin.top, this.labeledData[0][1], this.labeledData[1][1])
     },
   }
@@ -184,20 +181,35 @@ function addTitle(group, title, innerWidth) {
       .text(title)
 }
 
-function addLeftRightBars(group, scales, width, labeledData, labeledColors, duration) {
-  addBars(group, scales, width, [labeledData[0]], labeledColors, 'left', duration)
-  addBars(group, scales, width, [labeledData[1]], labeledColors, 'right', duration)
+function addLeftRightBars(group, scales, labeledData, labeledColors, duration) {
+  const overData = [[], []]
+  const labeledOverData = []
+  labeledOverData.push([labeledData[0][0], overData[0]])
+  labeledOverData.push([labeledData[1][0], overData[1]])
+  labeledData[0][1].forEach((d, i) => {
+    const overPercentage = d.percentage - labeledData[1][1][i].percentage
+    overData[0].push({x: d.x, percentage: d.percentage, overPercentage: overPercentage > 0 ? overPercentage : 0})
+    overData[1].push({
+      x: labeledData[1][1][i].x,
+      percentage: labeledData[1][1][i].percentage,
+      overPercentage: overPercentage < 0 ? -overPercentage : 0
+    })
+  })
+
+  for (let [i, direction] of [[0, 'left'], [1, 'right']]) {
+    addBars(group, scales, [labeledData[i]], labeledColors, direction, duration)
+    addOverBars(group, scales, [labeledOverData[i]], labeledColors, direction, duration)
+    addBarsLabels(group, scales, [labeledData[i]], labeledColors, direction, duration)
+  }
 }
 
-
-function addBars(group, scales, width, labeledData, labeledColors, direction, duration) {
+function addBars(group, scales, labeledData, labeledColors, direction, duration) {
   const barsGroupID = `#${direction}Bars`
   let barsGroupSelection = group.selectAll(barsGroupID).data(labeledData)
   barsGroupSelection.enter()
       .append('g')
       .attr('id', barsGroupID.replace('#', ''))
       .attr('fill', ([label,]) => labeledColors[label])
-      .attr('font-size', '11x')
   barsGroupSelection.exit().remove()
 
   barsGroupSelection = group.selectAll(barsGroupID).data(labeledData)
@@ -213,8 +225,20 @@ function addBars(group, scales, width, labeledData, labeledColors, direction, du
       .attr('x', d => direction === 'left' ? scales.leftX(d.percentage) - 0.2 : scales.rightX(0) + 0.2)
       .attr('y', d => scales.y(d.x))
   barsSelection.exit().remove()
+}
 
-  const barLabelsSelection = barsGroupSelection.selectAll('text').data(([, data]) => data)
+function addBarsLabels(group, scales, labeledData, labeledColors, direction, duration) {
+  const barsLabelsGroupID = `#${direction}BarsLabels`
+  let barsLabelsGroupSelection = group.selectAll(barsLabelsGroupID).data(labeledData)
+  barsLabelsGroupSelection.enter()
+      .append('g')
+      .attr('id', barsLabelsGroupID.replace('#', ''))
+      .attr('fill', ([label,]) => labeledColors[label])
+      .attr('font-size', '11x')
+  barsLabelsGroupSelection.exit().remove()
+
+  barsLabelsGroupSelection = group.selectAll(barsLabelsGroupID).data(labeledData)
+  const barLabelsSelection = barsLabelsGroupSelection.selectAll('text').data(([, data]) => data)
   barLabelsSelection.enter()
       .append('text')
       .classed('unselectable', true)
@@ -228,6 +252,30 @@ function addBars(group, scales, width, labeledData, labeledColors, direction, du
   barLabelsSelection.exit().remove()
 }
 
+function addOverBars(group, scales, labeledData, labeledColors, direction, duration) {
+  const overBarsGroupID = `#${direction}OverBars`
+  let overBarsGroupSelection = group.selectAll(overBarsGroupID).data(labeledData)
+  overBarsGroupSelection.enter()
+      .append('g')
+      .attr('id', overBarsGroupID.replace('#', ''))
+      .attr('fill', ([label,]) => labeledColors[`over${label}`])
+  overBarsGroupSelection.exit().remove()
+
+  overBarsGroupSelection = group.selectAll(overBarsGroupID).data(labeledData)
+  const overBarsSelection = overBarsGroupSelection.selectAll('rect').data(([, data]) => data)
+  overBarsSelection.enter()
+      .append('rect')
+      .classed('unselectable', true)
+      .merge(overBarsSelection)
+      .transition()
+      .duration(duration)
+      .attr('width', d => scales.rightX(d.overPercentage) - scales.rightX(0))
+      .attr('height', scales.y.bandwidth())
+      .attr('x', d => direction === 'left' ? scales.leftX(d.percentage) - 0.2 : scales.rightX(d.percentage - d.overPercentage) + 0.2)
+      .attr('y', d => scales.y(d.x))
+  overBarsSelection.exit().remove()
+}
+
 function addTooltipRect(group, width) {
   return group.append('rect')
       .attr('x', 1)
@@ -235,7 +283,13 @@ function addTooltipRect(group, width) {
       .classed('unselectable tooltipRect', true)
 }
 
-function addTooltipLabels(group, rightScale, color, direction) {
+function addTooltipLabels(group, rightScale, colors) {
+  const left = addTooltipLabel(group, rightScale, Object.values(colors)[0], 'left')
+  const right = addTooltipLabel(group, rightScale, Object.values(colors)[1], 'right')
+  return {left, right}
+}
+
+function addTooltipLabel(group, rightScale, color, direction) {
   return group.append('text')
       .attr('x', direction === 'left' ? rightScale(0) - 6 : rightScale(0) + 6)
       .attr('y', 0)
@@ -261,7 +315,7 @@ function bindTooltipRectWithLabels(pointersRect, rect, labels, scaleY, biasY, le
             .attr('y', (scaleY.step() * i) + (scaleY.step() * 0.7))
 
         labels.right.text(formatNumber(rightData[dataIndex].y))
-            .attr('y', (scaleY.step() * i)  + (scaleY.step() * 0.7))
+            .attr('y', (scaleY.step() * i) + (scaleY.step() * 0.7))
       })
       .on('mouseout', () => {
         rect.style('opacity', 0)

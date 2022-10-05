@@ -124,8 +124,8 @@ export default {
         if (this.selectedYear === this.maxYear) {
           this.selectedYear = this.minYear
         } else if ((this.maxYear - this.selectedYear) === this.stepYear) {
-          this.selectedYear = this.maxYear
           this.isPlaying = false
+          this.selectedYear = this.maxYear
         } else {
           this.selectedYear += this.stepYear
         }
