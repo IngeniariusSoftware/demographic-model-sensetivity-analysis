@@ -1,23 +1,30 @@
 <template>
   <div class="q-pa-md row q-gutter-md">
     <PopulationTable
-        :country="country"
+        :country="selectedCountry"
         :countries="countries"
         :population="countryPopulationYearSelect"
-        @countrySelected="onCountrySelected"
+        :min-year="minYear"
+        :max-year="maxYear"
+        :year="selectedYear"
+        :step-year="stepYear"
+        @countrySelected="selectedCountry = $event"
+        @yearSelected="selectedYear = $event"
     ></PopulationTable>
     <q-card>
       <q-card-section style="padding: 8px">
-        <LineChart
+        <TwoValuesPyramid
             id="1"
-            title="Population pyramid"
-            :labeledData="countryDemographicProfileData"
-            :labeled-colors="demographicProfileLabeledColors"
-            :labeled-axes="{x: 'Age group', y: 'Population'}"
-            :margin="margin"
+            :title="`Population pyramid ${selectedYear}`"
+            :labeledData="countryPopulationPyramidData"
+            :labeled-colors="femaleMaleLabeledColors"
+            :labeled-axes="{x: 'Total Percentage', y: 'Age group'}"
+            :margin="{top: 17, right: 12, bottom: 32, left: 26}"
             :width="579"
             :height="660"
-        ></LineChart>
+            :tick-number-x="5"
+            :tick-format-x="x => `${x}%`"
+        ></TwoValuesPyramid>
       </q-card-section>
     </q-card>
     <div>
@@ -42,11 +49,12 @@
                 id="3"
                 :title="`Survival rate ${this.ageSelect.start}→${this.ageSelect.end}`"
                 :labeledData="countrySurvivalRateData"
-                :labeled-colors="survivalRateLabeledColors"
+                :labeled-colors="femaleMaleLabeledColors"
                 :labeled-axes="{x: 'Age group', y: 'Survival rate'}"
                 :margin="margin"
                 :width="600"
                 :height="304"
+                :tick-number-x="20"
             ></LineChart>
           </q-card-section>
         </q-card>
@@ -65,9 +73,10 @@
               :show-grid="false"
               :tick-format-x="d => d"
               :show-dots="false"
-              :selected-x="year"
+              :selected-x="selectedYear"
               tooltip-type="lines"
-              @xSelected="onYearSelected"
+              @xSelected="selectedYear = $event"
+              :tick-number-x="11"
           ></LineChart>
         </q-card-section>
       </q-card>
@@ -77,43 +86,64 @@
 
 <script>
 import PopulationTable from './components/PopulationTable.vue'
-import LineChart from "@/components/LineChart";
+import LinesChart from "@/components/LinesChart";
 import populationDataCSV from '@/data/population.csv'
 import {FiveYearAges} from "@/data/FiveYearAges";
+import TwoValuesPyramid from "@/components/TwoValuesPyramid";
+import {ref} from 'vue'
 
 export default {
   name: 'App',
   data() {
     const indexedCountries = this.indexByCountry(populationDataCSV)
     const countries = Object.keys(indexedCountries)
-    const country = countries[Math.floor(Math.random() * countries.length)]
+    const selectedCountry = countries[Math.floor(Math.random() * countries.length)]
+    const stepYear = 5
     const ageSelect = {start: 2016, end: 2021}
     const margin = {top: 17, right: 12, bottom: 32, left: 54}
-    const year = populationDataCSV[0].year
-    return {populationDataCSV, country, countries, indexedCountries, ageSelect, margin, year}
+    const selectedYear = populationDataCSV[0].year
+    const maxYear = 2021
+    const minYear = maxYear - (Math.floor((maxYear - selectedYear) / stepYear) * stepYear)
+    return {populationDataCSV, selectedCountry: ref(selectedCountry), countries, indexedCountries, ageSelect, margin, selectedYear, stepYear, minYear, maxYear}
   },
   components: {
+    TwoValuesPyramid,
     PopulationTable,
-    LineChart
+    LineChart: LinesChart
   },
   computed: {
     index() {
-      return this.indexedCountries[this.country]
+      return this.indexedCountries[this.selectedCountry]
     },
     demographicProfileLabeledColors() {
       return {[this.ageSelect.start]: 'orange', [this.ageSelect.end]: 'red'}
     },
     populationLabeledColors() {
-      return {[this.country]: 'green'}
+      return {[this.selectedCountry]: 'green'}
     },
-    survivalRateLabeledColors() {
-      return {Female: 'pink', Male: 'steelblue'}
+    femaleMaleLabeledColors() {
+      return {Female: '#EE7989', Male: 'steelblue'}
     },
     countryPopulation() {
       return this.populationDataCSV.slice(this.index.start, this.index.end)
     },
     countryPopulationYearSelect() {
       return this.countryPopulation.filter(x => x.year === this.ageSelect.start || x.year === this.ageSelect.end)
+    },
+    countryPopulationPyramidData() {
+      const data = this.countryPopulation.filter(x => x.year === this.selectedYear)
+      let population = 0
+      const femaleData = Array.from(Object.entries(FiveYearAges).map(([key, value]) => {
+        population += data[0][value]
+        return {x: Number(key), y: round(data[0][value], 3), percentage: 0.0}
+      }))
+      const maleData = Array.from(Object.entries(FiveYearAges).map(([key, value]) => {
+        population += data[1][value]
+        return {x: Number(key), y: round(data[1][value], 3), percentage: 0.0}
+      }))
+      femaleData.forEach(d => d.percentage = round(d.y / population * 100.0, 3))
+      maleData.forEach(d => d.percentage = round(d.y / population * 100.0, 3))
+      return [['Female', femaleData], ['Male', maleData]]
     },
     countryDemographicProfileData() {
       const groupedData = {}
@@ -127,36 +157,35 @@ export default {
         }
       })
 
-      return groupedData
+      return Object.entries(groupedData)
     },
     countryPopulationGroupByYearData() {
-      const groupedData = {}
-      groupedData[this.country] = []
+      const data = []
       for (let i = this.countryPopulation.length - 2; i > 0; i -= 10) {
         let yearPopulation = 0
         const female = this.countryPopulation[i]
         const male = this.countryPopulation[i + 1]
         Object.values(FiveYearAges).forEach(age => yearPopulation += male[age] + female[age])
-        groupedData[this.country].push({x: this.countryPopulation[i].year, y: round(yearPopulation, 3)})
+        data.push({x: this.countryPopulation[i].year, y: round(yearPopulation, 3)})
       }
 
-      return groupedData
+      data.reverse()
+      return [[this.selectedCountry, data]]
     },
     countrySurvivalRateData() {
-      const groupedData = {Female: [], Male: []}
       const femaleYearStart = this.countryPopulationYearSelect[0]
       const femaleYearEnd = this.countryPopulationYearSelect[2]
       const maleYearStart = this.countryPopulationYearSelect[1]
       const maleYearEnd = this.countryPopulationYearSelect[3]
-      groupedData.Female = Array.from(Object.values(FiveYearAges).map((age, i, ages) => {
+      const femaleData = Array.from(Object.values(FiveYearAges).map((age, i, ages) => {
         return {x: parseInt(age), y: getSurvivalRate(femaleYearStart[age], femaleYearEnd[ages[i + 1]])}
       }))
-      groupedData.Female.pop()
-      groupedData.Male = Array.from(Object.values(FiveYearAges).map((age, i, ages) => {
+      femaleData.pop()
+      const maleData = Array.from(Object.values(FiveYearAges).map((age, i, ages) => {
         return {x: parseInt(age), y: getSurvivalRate(maleYearStart[age], maleYearEnd[ages[i + 1]])}
       }))
-      groupedData.Male.pop()
-      return groupedData
+      maleData.pop()
+      return [['Female', femaleData], ['Male', maleData]]
     }
   },
   methods: {
@@ -174,12 +203,6 @@ export default {
       }
       return indexedCountry
     },
-    onCountrySelected(selectedCountry) {
-      this.country = selectedCountry
-    },
-    onYearSelected(year) {
-      this.year = year
-    }
   },
 }
 
@@ -215,4 +238,18 @@ label {
   -ms-user-select: none; /* Internet Explorer/Edge */
   user-select: none; /* Non-prefixed version, currently supported by Chrome, Edge, Opera and Firefox */
 }
+
+.pointersRect {
+  fill: none;
+  pointer-events: all;
+  /*noinspection CssNonIntegerLengthInPixels*/
+  stroke-width: 0.2px;
+  stroke: black;
+}
+
+.charTitle {
+  text-anchor: middle;
+  font-weight: 600;
+}
+
 </style>

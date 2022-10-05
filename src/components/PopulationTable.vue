@@ -9,18 +9,27 @@
       :virtual-scroll-sticky-size-start="48"
       hide-bottom>
     <template v-slot:top>
-      <a>Population {{ country }} {{ yearExtent }} in thousands</a>
+      <label>Population {{ country }} {{ yearExtent }} in thousands</label>
+      <q-space/>
+      <q-slider
+          :min="minYear"
+          :max="maxYear"
+          :step="stepYear"
+          v-model="selectedYear"
+          label-always
+          style="max-width: 900px;
+          margin-top: 25px"/>
+      <q-space/>
+      <q-btn round color="primary" :icon="isPlaying ? 'pause' : 'play_arrow' " @click="isPlaying = !isPlaying"/>
       <q-space/>
       <q-select
           outlined
           use-input
           input-debounce="0"
-          @popup-hide="onSelect"
           @filter="onFilter"
           style="width: 500px"
           behavior="menu"
           v-model="selectedCountry"
-          :model-value="selectedCountry"
           :options="countryOptions"
       >
         <template v-slot:no-option>
@@ -42,17 +51,34 @@ import {FiveYearAges} from "@/data/FiveYearAges";
 export default {
   name: 'PopulationTable',
   props: {
-    country: {type: String, required: true},
+    country: {type: undefined, required: true},
     countries: {type: Array, required: true},
-    population: {type: Array, required: true}
+    population: {type: Array, required: true},
+    minYear: {type: Number, required: true},
+    maxYear: {type: Number, required: true},
+    stepYear: {type: Number, required: true},
+    year: {type: Number, required: true}
   },
   data() {
-    return {columns: [], selectedCountry: '', countryOptions: []}
+    return {columns: [], selectedCountry: '', countryOptions: [], selectedYear: 0, isPlaying: false}
   },
   mounted() {
     this.generateColumns()
     this.countryOptions = this.countries
+    this.selectedYear = this.year
     this.selectedCountry = this.country
+    setInterval(this.increaseYear, 1200)
+  },
+  watch: {
+    year() {
+      this.selectedYear = this.year
+    },
+    selectedYear() {
+      this.$emit('yearSelected', this.selectedYear)
+    },
+    selectedCountry() {
+      this.$emit('countrySelected', this.selectedCountry)
+    },
   },
   computed: {
     rows() {
@@ -79,9 +105,6 @@ export default {
         sortable: true
       }))
     },
-    onSelect() {
-      this.$emit('countrySelected', this.selectedCountry)
-    },
     onFilter(value, update) {
       if (value === '') {
         update(() => {
@@ -96,9 +119,21 @@ export default {
         this.countryOptions = this.countries.filter(v => v.toLowerCase().indexOf(val) > -1)
       })
     },
+    increaseYear() {
+      if (this.isPlaying) {
+        if (this.selectedYear === this.maxYear) {
+          this.selectedYear = this.minYear
+        } else if ((this.maxYear - this.selectedYear) === this.stepYear) {
+          this.selectedYear = this.maxYear
+          this.isPlaying = false
+        } else {
+          this.selectedYear += this.stepYear
+        }
+      }
+    }
   }
 }
 </script>
 
-<style scoped>
+<style>
 </style>
