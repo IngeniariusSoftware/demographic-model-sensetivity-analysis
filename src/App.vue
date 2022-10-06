@@ -17,10 +17,10 @@
             id="1"
             :title="`Population pyramid ${selectedYear}`"
             :labeledData="countryPopulationPyramidData"
-            :labeled-colors="femaleMaleLabeledColors"
+            :labeled-colors="femaleMalePyramidLabeledColors"
             :labeled-axes="{x: 'Total Percentage', y: 'Age group'}"
             :margin="{top: 17, right: 12, bottom: 32, left: 26}"
-            :width="579"
+            :width="550"
             :height="660"
             :tick-number-x="5"
             :tick-format-x="x => `${x}%`"
@@ -48,10 +48,10 @@
             <LineChart
                 id="3"
                 :title="`Survival rate ${this.ageSelect.start}→${this.ageSelect.end}`"
-                :labeledData="countrySurvivalRateData"
+                :labeledData="countrySurvivalRatesData"
                 :labeled-colors="femaleMaleLabeledColors"
                 :labeled-axes="{x: 'Age group', y: 'Survival rate'}"
-                :margin="margin"
+                :margin="{top: 17, right: 12, bottom: 32, left: 27}"
                 :width="600"
                 :height="304"
                 :tick-number-x="20"
@@ -86,10 +86,11 @@
 
 <script>
 import PopulationTable from './components/PopulationTable.vue'
-import LinesChart from "@/components/LinesChart";
+import LinesChart from "@/components/LinesChart"
 import populationDataCSV from '@/data/population.csv'
-import {FiveYearAges} from "@/data/FiveYearAges";
-import TwoValuesPyramid from "@/components/TwoValuesPyramid";
+import {FiveYearAges} from "@/data/FiveYearAges"
+import TwoValuesPyramid from "@/components/TwoValuesPyramid"
+import {round, getSurvivalRate, predict} from '@/classes/populationModel'
 
 export default {
   name: 'App',
@@ -99,11 +100,22 @@ export default {
     const selectedCountry = countries[Math.floor(Math.random() * countries.length)]
     const stepYear = 5
     const ageSelect = {start: 2016, end: 2021}
-    const margin = {top: 17, right: 12, bottom: 32, left: 54}
-    const maxYear = 2021
+    const margin = {top: 17, right: 12, bottom: 32, left: 80}
+    const maxYear = 2096
     const minYear = maxYear - (Math.floor((maxYear - populationDataCSV[0].year) / stepYear) * stepYear)
     const selectedYear = minYear
-    return {populationDataCSV, selectedCountry, countries, indexedCountries, ageSelect, margin, selectedYear, stepYear, minYear, maxYear}
+    return {
+      populationDataCSV,
+      selectedCountry,
+      countries,
+      indexedCountries,
+      ageSelect,
+      margin,
+      selectedYear,
+      stepYear,
+      minYear,
+      maxYear
+    }
   },
   components: {
     TwoValuesPyramid,
@@ -118,13 +130,19 @@ export default {
       return {[this.ageSelect.start]: 'orange', [this.ageSelect.end]: 'red'}
     },
     populationLabeledColors() {
-      return {[this.selectedCountry]: 'green'}
+      return {'My': 'green', 'United Nations': '#800049'}
     },
     femaleMaleLabeledColors() {
+      return {Female: '#ee7989', Male: '#4682B4'}
+    },
+    femaleMalePyramidLabeledColors() {
       return {Female: '#ee7989', Male: '#4682B4', overFemale: '#c7223b', overMale: '#0d4979'}
     },
     countryPopulation() {
       return this.populationDataCSV.slice(this.index.start, this.index.end)
+    },
+    myCountryPopulation() {
+      return this.countryPopulation.concat(this.predictedData)
     },
     countryPopulationYearSelect() {
       return this.countryPopulation.filter(x => x.year === this.ageSelect.start || x.year === this.ageSelect.end)
@@ -148,10 +166,10 @@ export default {
       const groupedData = {}
       this.countryPopulationYearSelect.forEach(d => {
         if (d.year in groupedData) {
-          groupedData[d.year].forEach(group => group.y = round(group.y + d[FiveYearAges[group.x]], 3))
+          groupedData[d.year].forEach(group => group.y = group.y + d[FiveYearAges[group.x]])
         } else {
           groupedData[d.year] = Array.from(Object.entries(FiveYearAges).map(([key, value]) => {
-            return {x: Number(key), y: round(d[value], 3)}
+            return {x: Number(key), y: d[value]}
           }))
         }
       })
@@ -159,32 +177,42 @@ export default {
       return Object.entries(groupedData)
     },
     countryPopulationGroupByYearData() {
-      const data = []
-      for (let i = this.countryPopulation.length - 2; i > 0; i -= 10) {
+      const data = this.countryPopulation
+      const groupedData = []
+      for (let i = 0; i < data.length; i += 2) {
         let yearPopulation = 0
-        const female = this.countryPopulation[i]
-        const male = this.countryPopulation[i + 1]
+        const female = data[i]
+        const male = data[i + 1]
         Object.values(FiveYearAges).forEach(age => yearPopulation += male[age] + female[age])
-        data.push({x: this.countryPopulation[i].year, y: round(yearPopulation, 3)})
+        groupedData.push({x: data[i].year, y: round(yearPopulation, 3)})
       }
 
-      data.reverse()
-      return [[this.selectedCountry, data]]
+      return [['United Nations', groupedData]]
     },
-    countrySurvivalRateData() {
-      const femaleYearStart = this.countryPopulationYearSelect[0]
-      const femaleYearEnd = this.countryPopulationYearSelect[2]
-      const maleYearStart = this.countryPopulationYearSelect[1]
-      const maleYearEnd = this.countryPopulationYearSelect[3]
-      const femaleData = Array.from(Object.values(FiveYearAges).map((age, i, ages) => {
-        return {x: parseInt(age), y: getSurvivalRate(femaleYearStart[age], femaleYearEnd[ages[i + 1]])}
-      }))
-      femaleData.pop()
-      const maleData = Array.from(Object.values(FiveYearAges).map((age, i, ages) => {
-        return {x: parseInt(age), y: getSurvivalRate(maleYearStart[age], maleYearEnd[ages[i + 1]])}
-      }))
-      maleData.pop()
-      return [['Female', femaleData], ['Male', maleData]]
+    countrySurvivalRatesData() {
+      const femaleYearStartData = this.countryPopulationYearSelect[0]
+      const femaleYearEndData = this.countryPopulationYearSelect[2]
+      const maleYearStartData = this.countryPopulationYearSelect[1]
+      const maleYearEndData = this.countryPopulationYearSelect[3]
+      const survivalRate = [[], []]
+
+      Object.values(FiveYearAges).forEach((age, i, ages) => {
+        if (i < ages.length - 1) {
+          survivalRate[0].push({
+            x: parseInt(age),
+            y: getSurvivalRate(femaleYearStartData[age], femaleYearEndData[ages[i + 1]], true)
+          })
+          survivalRate[1].push({
+            x: parseInt(age),
+            y: getSurvivalRate(maleYearStartData[age], maleYearEndData[ages[i + 1]], true)
+          })
+        }
+      })
+
+      return [['Female', survivalRate[0]], ['Male', survivalRate[1]]]
+    },
+    predictedData() {
+      return predict(this.countryPopulationYearSelect, this.maxYear)
     }
   },
   methods: {
@@ -204,16 +232,6 @@ export default {
     },
   },
 }
-
-function getSurvivalRate(start, end) {
-  const value = end / start
-  return isNaN(value) ? 0.0 : round(value, 3)
-}
-
-function round(float_number, number_of_decimals) {
-  return parseFloat(float_number.toFixed(number_of_decimals))
-}
-
 </script>
 
 <style>

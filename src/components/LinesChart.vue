@@ -430,7 +430,7 @@ function arrangeTooltipLines(lines, labels, scales, data, transitionDuration = 0
       .transition()
       .duration(transitionDuration)
       .attr('y', scales.y(data.y) - 7)
-      .text(data.y)
+      .text(data.y.toLocaleString('fr-FR', {maximumFractionDigits: 3}))
   labels.horizontalX
       .transition()
       .duration(transitionDuration)

@@ -9,7 +9,16 @@
       :virtual-scroll-sticky-size-start="48"
       hide-bottom>
     <template v-slot:top>
-      <label>Population {{ country }} {{ yearExtent }} in thousands</label>
+      <div class="column" style="min-width: 250px">
+        <label>Population {{ yearExtent }}</label>
+        <div class="row">
+          <q-badge rounded color="pink" :label="`girls ${girlsPercentage.toFixed(1)}%`"/>
+          <q-space/>
+          <q-badge rounded color="steelblue" :label="`boys ${boysPercentage.toFixed(1)}%`"/>
+          <q-space/>
+          <q-badge rounded color="purple" :label="`fertility ${fertility}`"/>
+        </div>
+      </div>
       <q-space/>
       <q-slider
           :min="minYear"
@@ -20,13 +29,18 @@
           style="max-width: 900px;
           margin-top: 25px"/>
       <q-space/>
-      <q-btn round color="primary" :icon="isPlaying ? 'pause' : 'play_arrow' " @click="isPlaying = !isPlaying"/>
+      <q-btn
+          round
+          color="primary"
+          :icon="isPlaying ? 'pause' : 'play_arrow'"
+          @click="isPlaying = !isPlaying"/>
       <q-space/>
       <q-select
           outlined
           use-input
           input-debounce="0"
           @filter="onFilter"
+          @update:model-value="onUpdate"
           style="width: 500px"
           behavior="menu"
           v-model="selectedCountry"
@@ -46,13 +60,14 @@
 
 <script>
 import * as d3 from 'd3'
-import {FiveYearAges} from "@/data/FiveYearAges";
+import {FiveYearAges} from "@/data/FiveYearAges"
+import {fertilityAgeGroups, getBirthRates} from "@/classes/populationModel";
 
 export default {
   name: 'PopulationTable',
   props: {
     country: {type: undefined, required: true},
-    countries: {type: Array, required: true},
+    countries: {type: Array, required: true, default: Array.prototype},
     population: {type: Array, required: true},
     minYear: {type: Number, required: true},
     maxYear: {type: Number, required: true},
@@ -64,9 +79,9 @@ export default {
   },
   mounted() {
     this.generateColumns()
-    this.countryOptions = this.countries
     this.selectedYear = this.year
     this.selectedCountry = this.country
+    this.countryOptions = this.countries
     setInterval(this.increaseYear, 1200)
   },
   watch: {
@@ -76,11 +91,21 @@ export default {
     selectedYear() {
       this.$emit('yearSelected', this.selectedYear)
     },
-    selectedCountry() {
-      this.$emit('countrySelected', this.selectedCountry)
-    },
   },
   computed: {
+    childrenCount() {
+      return this.population[2]['0-4'] + this.population[3]['0-4']
+    },
+    girlsPercentage() {
+      return this.population[2]['0-4'] / this.childrenCount * 100.0
+    },
+    boysPercentage() {
+      return this.population[3]['0-4'] / this.childrenCount * 100.0
+    },
+    fertility() {
+      const birthRates = getBirthRates(this.population[2], this.population[3])
+      return ((birthRates.Male + birthRates.Female) * fertilityAgeGroups.length).toFixed(2)
+    },
     rows() {
       return this.population ? this.population : []
     },
@@ -101,9 +126,14 @@ export default {
         align: 'left',
         label: age,
         field: age,
-        format: value => value < 10.0 ? value.toFixed(3) : Math.round(value).toLocaleString('fr-FR', {maximumFractionDigits: 3}),
+        format: value => value.toLocaleString('fr-FR', {maximumFractionDigits: 3}),
         sortable: true
       }))
+    },
+    onUpdate(value) {
+      if (this.countries.indexOf(value) > -1) {
+        this.$emit('countrySelected', value)
+      }
     },
     onFilter(value, update) {
       if (value === '') {

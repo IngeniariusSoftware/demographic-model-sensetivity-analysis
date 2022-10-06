@@ -16,7 +16,8 @@ export default {
       titleText: Selection,
       pointersRect: Selection,
       tooltipRect: undefined,
-      tooltipLabels: {left: Selection, right: Selection}
+      tooltipLabels: {left: Selection, right: Selection},
+      dataLabels: {left: Selection, right: Selection}
     }
   },
   props: {
@@ -83,6 +84,7 @@ export default {
     this.tooltipRect = addTooltipRect(this.rootGroup, this.innerWidth)
     this.tooltipLabels = addTooltipLabels(this.rootGroup, this.scales.rightX, this.labeledColors)
     bindTooltipRectWithLabels(this.pointersRect, this.tooltipRect, this.tooltipLabels, this.scales.y, this.margin.top, this.labeledData[0][1], this.labeledData[1][1])
+    this.dataLabels = addDataLabels(this.rootGroup, this.innerWidth, this.margin.top, this.labeledData, this.labeledColors)
   },
   methods: {
     updateLineChart() {
@@ -91,6 +93,7 @@ export default {
       this.axes.y.transition().duration(this.transitionDuration).call(axisLeft(this.scales.y, this.tickNumberY))
       addLeftRightBars(this.rootGroup, this.scales, this.labeledData, this.labeledColors, this.transitionDuration)
       bindTooltipRectWithLabels(this.pointersRect, this.tooltipRect, this.tooltipLabels, this.scales.y, this.margin.top, this.labeledData[0][1], this.labeledData[1][1])
+      updateDataLabels(this.dataLabels, this.labeledData, this.labeledColors)
     },
   }
 }
@@ -311,10 +314,10 @@ function bindTooltipRectWithLabels(pointersRect, rect, labels, scaleY, biasY, le
         const dataIndex = leftData.length - i - 1
         rect.attr('y', scaleY.step() * i)
 
-        labels.left.text(formatNumber(leftData[dataIndex].y))
+        labels.left.text(leftData[dataIndex].y.toLocaleString('fr-FR', {maximumFractionDigits: 3}))
             .attr('y', (scaleY.step() * i) + (scaleY.step() * 0.7))
 
-        labels.right.text(formatNumber(rightData[dataIndex].y))
+        labels.right.text(rightData[dataIndex].y.toLocaleString('fr-FR', {maximumFractionDigits: 3}))
             .attr('y', (scaleY.step() * i) + (scaleY.step() * 0.7))
       })
       .on('mouseout', () => {
@@ -324,15 +327,37 @@ function bindTooltipRectWithLabels(pointersRect, rect, labels, scaleY, biasY, le
       })
 }
 
-function formatNumber(number) {
-  return number < 10.0 ? number.toFixed(3) : Math.round(number).toLocaleString('fr-FR', {maximumFractionDigits: 3})
+function addDataLabels(group, width, marginTop, labeledData, labeledColors) {
+  const leftLabel = addDataLabel(group, width, marginTop, 'left')
+  const rightLabel = addDataLabel(group, width, marginTop, 'right')
+  const labels = {left: leftLabel, right: rightLabel}
+  updateDataLabels(labels, labeledData, labeledColors)
+  return labels
 }
 
+function addDataLabel(group, width, marginTop, direction) {
+  return group.append('text')
+      .attr('y', marginTop + 20)
+      .attr('x', direction === 'left' ? width * 0.2 : width * 0.8)
+      .classed('unselectable dataLabel', true)
+}
+
+function updateDataLabels(labels, labeledData, labeledColors) {
+  labels.left.style('fill', labeledColors[labeledData[0][0]])
+      .text(labeledData[0][0])
+  labels.right.style('fill', labeledColors[labeledData[1][0]])
+      .text(labeledData[1][0])
+}
 </script>
 
 <style>
 .tooltipRect {
   opacity: 0;
   fill: white;
+}
+
+.dataLabel {
+  text-anchor: middle;
+  font-size: 25px;
 }
 </style>
