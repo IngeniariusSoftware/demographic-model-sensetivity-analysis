@@ -49,7 +49,7 @@ function getSurvivalRates(femaleYearStartData, maleYearStartData, femaleYearEndD
 
 export function getSurvivalRate(start, end, needToRound = false) {
     const value = end / start
-    return isNaN(value) ? 0.0 : needToRound ? round(value, 3) : value
+    return isFinite(value) ? needToRound ? round(value, 3) : value : 0.0
 }
 
 export function round(float_number, number_of_decimals) {
