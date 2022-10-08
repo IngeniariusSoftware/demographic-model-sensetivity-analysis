@@ -17,7 +17,9 @@ export default {
       pointersRect: Selection,
       tooltipRect: undefined,
       tooltipLabels: {left: Selection, right: Selection},
-      dataLabels: {left: Selection, right: Selection}
+      dataLabels: {left: Selection, right: Selection},
+      dataIndex: 0,
+      formatPercentage: (d) => `${d}%`
     }
   },
   props: {
@@ -31,9 +33,9 @@ export default {
     height: {type: Number, required: true},
     transitionDuration: {type: Number, required: false, default: 1000},
     tickNumberX: {type: Number, required: false, default: undefined},
-    tickNumberY: {type: Number, required: false, default: undefined},
-    tickFormatX: {type: Function, required: false, default: undefined},
-    tickFormatY: {type: Function, required: false, default: undefined},
+    tickNumberPercentages: {type: Number, required: false, default: undefined},
+    formatX: {type: Function, required: false, default: undefined},
+    formatY: {type: Function, required: false, default: undefined},
   },
   computed: {
     containerID() {
@@ -75,25 +77,27 @@ export default {
   mounted() {
     this.rootGroup = addRootGroup(this.containerID, this.width, this.height, this.margin)
     const axesX = addAxesX(this.rootGroup, this.scales.leftX, this.scales.rightX, this.innerWidth, this.innerHeight,
-        this.margin.bottom, this.labeledAxes.x, this.tickFormatX, this.tickNumberX)
+        this.margin.bottom, this.labeledAxes.x, this.formatPercentage, this.tickNumberPercentages)
     this.axes.leftX = axesX.left
     this.axes.rightX = axesX.right
-    this.axes.y = addAxisY(this.rootGroup, this.scales.y, this.innerWidth, this.innerHeight, this.margin.left, this.labeledAxes.y, this.tickFormatY, this.tickNumberY)
+    this.axes.y = addAxisY(this.rootGroup, this.scales.y, this.innerWidth, this.innerHeight, this.margin.left, this.labeledAxes.y, this.formatX, this.tickNumberX)
     this.titleText = addTitle(this.rootGroup, this.title, this.innerWidth, this.height, this.margin)
     this.pointersRect = addPointersRect(this.rootGroup, this.innerWidth, this.innerHeight)
     addLeftRightBars(this.rootGroup, this.scales, this.labeledData, this.labeledColors, 0)
     this.tooltipRect = addTooltipRect(this.rootGroup, this.innerWidth)
     this.tooltipLabels = addTooltipLabels(this.rootGroup, this.scales.rightX, this.labeledColors)
-    bindTooltipRectWithLabels(this.pointersRect, this.tooltipRect, this.tooltipLabels, this.scales.y, this.margin.top, this.labeledData[0][1], this.labeledData[1][1])
+    bindTooltipRectWithLabels(this.pointersRect, this.tooltipRect, this.tooltipLabels, this.scales.y, this.margin.top,
+        this.formatY, this.labeledData[0][1], this.labeledData[1][1], this.dataIndex, (i) => this.dataIndex = i)
     this.dataLabels = addDataLabels(this.rootGroup, this.innerWidth, this.margin.top, this.labeledData, this.labeledColors)
   },
   methods: {
     updateLineChart() {
-      this.axes.leftX.transition().duration(this.transitionDuration).call(axisBottom(this.scales.leftX, this.tickFormatX, this.tickNumberX))
-      this.axes.rightX.transition().duration(this.transitionDuration).call(axisBottom(this.scales.rightX, this.tickFormatX, this.tickNumberX))
-      this.axes.y.transition().duration(this.transitionDuration).call(axisLeft(this.scales.y, this.tickFormatY, this.tickNumberY))
+      this.axes.leftX.transition().duration(this.transitionDuration).call(axisBottom(this.scales.leftX, this.formatPercentage, this.tickNumberPercentages))
+      this.axes.rightX.transition().duration(this.transitionDuration).call(axisBottom(this.scales.rightX, this.formatPercentage, this.tickNumberPercentages))
+      this.axes.y.transition().duration(this.transitionDuration).call(axisLeft(this.scales.y, this.formatX, this.tickNumberPercentages))
       addLeftRightBars(this.rootGroup, this.scales, this.labeledData, this.labeledColors, this.transitionDuration)
-      bindTooltipRectWithLabels(this.pointersRect, this.tooltipRect, this.tooltipLabels, this.scales.y, this.margin.top, this.labeledData[0][1], this.labeledData[1][1])
+      bindTooltipRectWithLabels(this.pointersRect, this.tooltipRect, this.tooltipLabels, this.scales.y, this.margin.top,
+          this.formatY, this.labeledData[0][1], this.labeledData[1][1], this.dataIndex, (i) => this.dataIndex = i)
       updateDataLabels(this.dataLabels, this.labeledData, this.labeledColors)
     },
   }
@@ -153,9 +157,9 @@ function axisBottom(scale, tickFormat, tickNumber) {
   return axis
 }
 
-function addAxisY(group, scaleY, width, height, marginLeft, labelY, tickFormatY, tickNumberY) {
+function addAxisY(group, scaleY, width, height, marginLeft, labelY, tickFormatX, tickNumberX) {
   const axisY = group.append('g')
-      .call(axisLeft(scaleY, tickFormatY, tickNumberY))
+      .call(axisLeft(scaleY, tickFormatX, tickNumberX))
       .attr('class', 'unselectable')
 
   axisY.append('text')
@@ -306,7 +310,9 @@ function addTooltipLabel(group, rightScale, color, direction) {
       .classed('unselectable', true)
 }
 
-function bindTooltipRectWithLabels(pointersRect, rect, labels, scaleY, biasY, leftData, rightData) {
+function bindTooltipRectWithLabels(pointersRect, rect, labels, scaleY, biasY, formatY, leftData, rightData, dataIndex, onMouseMove) {
+  labels.left.text(formatY ? formatY(leftData[dataIndex].y) : leftData[dataIndex].y)
+  labels.right.text(formatY ? formatY(rightData[dataIndex].y) : leftData[dataIndex].y)
   pointersRect.on('mouseover', () => {
     rect.style('opacity', 1)
         .attr('height', scaleY.step())
@@ -316,12 +322,13 @@ function bindTooltipRectWithLabels(pointersRect, rect, labels, scaleY, biasY, le
       .on('mousemove', (event) => {
         const i = d3.max([0, Math.round((event.layerY - biasY) / scaleY.step()) - 1])
         const dataIndex = leftData.length - i - 1
+        onMouseMove(dataIndex)
         rect.attr('y', scaleY.step() * i)
 
-        labels.left.text(leftData[dataIndex].y.toLocaleString('fr-FR', {maximumFractionDigits: 3}))
+        labels.left.text(formatY ? formatY(leftData[dataIndex].y) : leftData[dataIndex].y)
             .attr('y', (scaleY.step() * i) + (scaleY.step() * 0.7))
 
-        labels.right.text(rightData[dataIndex].y.toLocaleString('fr-FR', {maximumFractionDigits: 3}))
+        labels.right.text(formatY ? formatY(rightData[dataIndex].y) : leftData[dataIndex].y)
             .attr('y', (scaleY.step() * i) + (scaleY.step() * 0.7))
       })
       .on('mouseout', () => {

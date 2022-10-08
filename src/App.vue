@@ -22,9 +22,9 @@
             :margin="{top: 17, right: 12, bottom: 32, left: 34}"
             :width="width * 0.33"
             :height="height * 0.7"
-            :tick-number-x="5"
-            :tick-format-x="x => `${x}%`"
-            :tick-format-y="y => FiveYearAges[y]"
+            :tick-number-percentages="5"
+            :format-x="x => FiveYearAges[x]"
+            :format-y="y => Number(y).toLocaleString('fr-FR', {maximumFractionDigits: 3})"
         ></TwoValuesPyramid>
       </q-card-section>
     </q-card>
