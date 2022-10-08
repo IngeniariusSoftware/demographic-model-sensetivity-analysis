@@ -15,15 +15,16 @@
       <q-card-section style="padding: 8px">
         <TwoValuesPyramid
             id="1"
-            :title="`Population pyramid ${selectedYear}`"
+            :title="`${selectedDataLabel} population pyramid ${selectedYear}`"
             :labeledData="countryPopulationPyramidData"
             :labeled-colors="femaleMalePyramidLabeledColors"
             :labeled-axes="{x: 'Total Percentage', y: 'Age group'}"
-            :margin="{top: 17, right: 12, bottom: 32, left: 26}"
-            :width="550"
-            :height="660"
+            :margin="{top: 17, right: 12, bottom: 32, left: 34}"
+            :width="width * 0.33"
+            :height="height * 0.7"
             :tick-number-x="5"
             :tick-format-x="x => `${x}%`"
+            :tick-format-y="y => FiveYearAges[y]"
         ></TwoValuesPyramid>
       </q-card-section>
     </q-card>
@@ -31,53 +32,58 @@
       <div class="row q-gutter-md">
         <q-card>
           <q-card-section style="padding: 8px">
-            <LineChart
+            <LinesChart
                 id="2"
                 title="Demographic profile"
                 :labeledData="countryDemographicProfileData"
                 :labeled-colors="demographicProfileLabeledColors"
                 :labeled-axes="{x: 'Age group', y: 'Population'}"
                 :margin="margin"
-                :width="600"
-                :height="304"
-            ></LineChart>
+                :width="width * 0.3"
+                :height="height * 0.32"
+                :format-y="y => Number(y).toLocaleString('fr-FR', {maximumFractionDigits: 3})"
+                :format-x="x => FiveYearAges[x]"
+            ></LinesChart>
           </q-card-section>
         </q-card>
         <q-card>
           <q-card-section style="padding: 8px">
-            <LineChart
+            <LinesChart
                 id="3"
                 :title="`Survival rate ${this.ageSelect.start}→${this.ageSelect.end}`"
                 :labeledData="countrySurvivalRatesData"
                 :labeled-colors="femaleMaleLabeledColors"
                 :labeled-axes="{x: 'Age group', y: 'Survival rate'}"
                 :margin="{top: 17, right: 12, bottom: 32, left: 27}"
-                :width="600"
-                :height="304"
-                :tick-number-x="20"
-            ></LineChart>
+                :width="width * 0.3"
+                :height="height * 0.32"
+                :format-x="x => FiveYearAges[x]"
+            ></LinesChart>
           </q-card-section>
         </q-card>
       </div>
       <q-card style="margin-top: 15px">
         <q-card-section style="padding: 8px">
-          <LineChart
+          <LinesChart
               id="4"
               title="Population"
               :labeledData="countryPopulationGroupByYearData"
               :labeled-colors="populationLabeledColors"
               :labeled-axes="{x: 'Year', y: 'Population'}"
               :margin="margin"
-              :width="1220"
-              :height="310"
+              :width="width * 0.6"
+              :height="height * 0.32"
               :show-grid="false"
-              :tick-format-x="d => d"
+              :format-x="x => x"
+              :format-y="y => Number(y).toLocaleString('fr-FR', {maximumFractionDigits: 3})"
               :show-dots="false"
               :selected-x="selectedYear"
+              :selected-label="selectedDataLabel"
               tooltip-type="lines"
               @xSelected="selectedYear = $event"
-              :tick-number-x="11"
-          ></LineChart>
+              @labelSelected="selectedDataLabel = $event"
+              :tick-number-x="20"
+          ></LinesChart>
         </q-card-section>
       </q-card>
     </div>
@@ -104,6 +110,8 @@ export default {
     const maxYear = 2096
     const minYear = maxYear - (Math.floor((maxYear - populationDataCSV[0].year) / stepYear) * stepYear)
     const selectedYear = minYear
+    const selectedDataLabel = 'My'
+    const yearStart = populationDataCSV[0].year
     return {
       populationDataCSV,
       selectedCountry,
@@ -114,13 +122,18 @@ export default {
       selectedYear,
       stepYear,
       minYear,
-      maxYear
+      maxYear,
+      selectedDataLabel,
+      yearStart,
+      FiveYearAges,
+      width: window.innerWidth,
+      height: window.innerHeight
     }
   },
   components: {
     TwoValuesPyramid,
     PopulationTable,
-    LineChart: LinesChart
+    LinesChart
   },
   computed: {
     index() {
@@ -138,17 +151,20 @@ export default {
     femaleMalePyramidLabeledColors() {
       return {Female: '#ee7989', Male: '#4682B4', overFemale: '#c7223b', overMale: '#0d4979'}
     },
-    countryPopulation() {
+    UNCountryPopulation() {
       return this.populationDataCSV.slice(this.index.start, this.index.end)
     },
     myCountryPopulation() {
-      return this.countryPopulation.concat(this.predictedData)
+      const indexEnd = this.index.start + ((this.ageSelect.end - this.yearStart) / this.stepYear * 2)
+      const estimatedData = this.populationDataCSV.slice(this.index.start, indexEnd + 2)
+      return estimatedData.concat(this.predictedData)
     },
     countryPopulationYearSelect() {
-      return this.countryPopulation.filter(x => x.year === this.ageSelect.start || x.year === this.ageSelect.end)
+      return this.countryPopulationAtYear(this.UNCountryPopulation, this.ageSelect.start)
+          .concat(this.countryPopulationAtYear(this.UNCountryPopulation, this.ageSelect.end))
     },
     countryPopulationPyramidData() {
-      const data = this.countryPopulation.filter(x => x.year === this.selectedYear)
+      const data = this.countryPopulationAtYear(this.selectedDataLabel === 'My' ? this.myCountryPopulation : this.UNCountryPopulation, this.selectedYear)
       let population = 0
       const femaleData = Array.from(Object.entries(FiveYearAges).map(([key, value]) => {
         population += data[0][value]
@@ -177,17 +193,23 @@ export default {
       return Object.entries(groupedData)
     },
     countryPopulationGroupByYearData() {
-      const data = this.countryPopulation
       const groupedData = []
-      for (let i = 0; i < data.length; i += 2) {
-        let yearPopulation = 0
-        const female = data[i]
-        const male = data[i + 1]
-        Object.values(FiveYearAges).forEach(age => yearPopulation += male[age] + female[age])
-        groupedData.push({x: data[i].year, y: round(yearPopulation, 3)})
-      }
+      const dataNames = ['My', 'United Nations']
+      dataNames.forEach(dataName => {
+        const data = dataName === 'My' ? this.myCountryPopulation : this.UNCountryPopulation
+        const result = []
+        for (let i = 0; i < data.length; i += 2) {
+          let yearPopulation = 0
+          const female = data[i]
+          const male = data[i + 1]
+          Object.values(FiveYearAges).forEach(age => yearPopulation += male[age] + female[age])
+          result.push({x: data[i].year, y: round(yearPopulation, 3)})
+        }
 
-      return [['United Nations', groupedData]]
+        groupedData.push([dataName, result])
+      })
+
+      return groupedData
     },
     countrySurvivalRatesData() {
       const femaleYearStartData = this.countryPopulationYearSelect[0]
@@ -228,8 +250,14 @@ export default {
           indexedCountry[currentCountry] = {start: i}
         }
       }
+
       return indexedCountry
     },
+    countryPopulationAtYear(data, year) {
+      const index = (year - this.yearStart) / this.stepYear * 2
+
+      return data.slice(index, index + 2)
+    }
   },
 }
 </script>

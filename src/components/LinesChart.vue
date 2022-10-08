@@ -21,13 +21,15 @@ export default {
     return {
       axes: {x: Selection, y: Selection},
       grid: {x: Selection, y: Selection},
+      zoomScales: {x: Object, y: Object},
       rootGroup: Selection,
       visibleGroup: Selection,
       tooltipLabel: undefined,
       pointersRect: undefined,
       rawSelectedX: Number,
+      rawSelectedLabel: String,
       tooltipLines: {horizontal: undefined, vertical: Selection},
-      tooltipLineLabels: {horizontalX: Selection, horizontalY: Selection}
+      tooltipLineLabels: {horizontalX: Selection, horizontalY: Selection},
     }
   },
   props: {
@@ -45,9 +47,11 @@ export default {
     showGrid: {type: Boolean, required: false, default: true},
     showDots: {type: Boolean, required: false, default: true},
     dotsRadius: {type: Number, required: false, default: 3},
-    tickFormatX: {type: Function, required: false, default: undefined},
+    formatX: {type: Function, required: false, default: undefined},
+    formatY: {type: Function, required: false, default: undefined},
     tooltipType: {type: String, required: false, default: 'dots'},
     selectedX: {type: Number, required: false},
+    selectedLabel: {type: String, required: false},
     zoom: {
       type: Object, required: false, default: () => {
         return {min: 1, max: 10}
@@ -73,43 +77,42 @@ export default {
     dataXY() {
       return this.labeledData.reduce((result, [, data]) => result.concat(data), [])
     },
-    firstDatumXY() {
-      return this.labeledData[0][1]
-    },
     scales() {
       const scaleX = d3.scaleLinear()
-          .domain(expandExtent(d3.extent(this.dataXY.map(d => d.x)), 0.1))
+          .domain(expandExtent(d3.extent(this.dataXY.map(d => d.x)), 0.2))
           .range([0, this.innerWidth])
       const scaleY = d3.scaleLinear()
-          .domain(expandExtent(d3.extent(this.dataXY.map(d => d.y)), 0.1))
+          .domain(expandExtent(d3.extent(this.dataXY.map(d => d.y)), 0.2))
           .range([this.innerHeight, 0])
       return {x: scaleX, y: scaleY}
     },
   },
   watch: {
     labeledData() {
-      this.updateLineChart(this.scales, this.transitionDuration, this.selectedX)
+      this.zoomScales = {x: this.scales.x, y: this.scales.y}
+      this.updateLineChart(this.selectedX, this.selectedLabel, this.transitionDuration)
     },
     selectedX() {
-      this.addTooltip(this.scales, this.selectedX, this.transitionDuration)
+      this.addTooltip(this.selectedX, this.selectedLabel, this.transitionDuration)
     }
   },
   mounted() {
+    this.zoomScales = {x: this.scales.x, y: this.scales.y}
     this.rootGroup = addRootGroup(this.containerID, this.width, this.height, this.margin)
     if (this.showGrid) {
-      this.grid.x = addGridX(this.rootGroup, this.scales.x, this.innerHeight, this.tickNumberX)
-      this.grid.y = addGridY(this.rootGroup, this.scales.y, this.innerWidth, this.tickNumberY)
+      this.grid.x = addGridX(this.rootGroup, this.zoomScales.x, this.innerHeight, this.tickNumberX)
+      this.grid.y = addGridY(this.rootGroup, this.zoomScales.y, this.innerWidth, this.tickNumberY)
     }
-    this.axes.x = addAxisX(this.rootGroup, this.scales.x, this.innerWidth, this.innerHeight, this.margin.bottom, this.labeledAxes.x, this.tickFormatX, this.tickNumberX)
-    this.axes.y = addAxisY(this.rootGroup, this.scales.y, this.innerWidth, this.innerHeight, this.margin.left, this.labeledAxes.y, this.tickNumberY)
+    this.axes.x = addAxisX(this.rootGroup, this.zoomScales.x, this.innerWidth, this.innerHeight, this.margin.bottom, this.labeledAxes.x, this.formatX, this.tickNumberX)
+    this.axes.y = addAxisY(this.rootGroup, this.zoomScales.y, this.innerWidth, this.innerHeight, this.margin.left, this.labeledAxes.y, this.formatY, this.tickNumberY)
     addLegend(this.rootGroup, this.title, this.innerWidth, this.height, this.margin)
     this.addZoom(this.rootGroup, this.width, this.height, this.innerWidth, this.innerHeight, this.zoom.min, this.zoom.max)
     this.visibleGroup = addVisibleGroup(this.rootGroup, this.visibleAreaID, this.innerWidth, this.innerHeight)
-    addLines(this.visibleGroup, this.scales, this.labeledData, this.labeledColors, 0)
+    addLines(this.visibleGroup, this.zoomScales, this.labeledData, this.labeledColors, 0)
     if (this.showDots) {
-      addDots(this.visibleGroup, this.scales, this.labeledData, this.labeledColors, this.dotsRadius, 0)
+      addDots(this.visibleGroup, this.zoomScales, this.labeledData, this.labeledColors, this.dotsRadius, 0)
     }
-    this.addTooltip(this.scales, this.selectedX)
+    this.addTooltip(this.selectedX, this.selectedLabel)
   },
   methods: {
     addZoom(group, width, height, innerWidth, innerHeight, minZoom, maxZoom) {
@@ -125,40 +128,48 @@ export default {
           .call(zoom)
     },
     onZoomChanged(event) {
-      const scaleX = event.transform.rescaleX(this.scales.x)
-      const scaleY = event.transform.rescaleY(this.scales.y)
-      this.updateLineChart({x: scaleX, y: scaleY}, 0, this.rawSelectedX)
+      this.zoomScales.x = event.transform.rescaleX(this.scales.x)
+      this.zoomScales.y = event.transform.rescaleY(this.scales.y)
+      this.updateLineChart(this.rawSelectedX, this.rawSelectedLabel, 0)
     },
-    updateLineChart(scales, transitionDuration, currentX) {
-      this.axes.x.transition().duration(transitionDuration).call(axisBottom(scales.x, this.tickFormatX, this.tickNumberX))
-      this.axes.y.transition().duration(transitionDuration).call(axisLeft(scales.y, this.tickNumberY))
+    updateLineChart(currentX, currentLabel, transitionDuration) {
+      this.axes.x.transition().duration(transitionDuration).call(axisBottom(this.zoomScales.x, this.formatX, this.tickNumberX))
+      this.axes.y.transition().duration(transitionDuration).call(axisLeft(this.zoomScales.y, this.formatY, this.tickNumberY))
 
       if (this.showGrid) {
-        this.grid.x.call(generateGridX(scales.x, this.innerHeight, this.tickNumberX))
-        this.grid.y.call(generateGridY(scales.y, this.innerWidth, this.tickNumberY))
+        this.grid.x.call(generateGridX(this.zoomScales.x, this.innerHeight, this.tickNumberX))
+        this.grid.y.call(generateGridY(this.zoomScales.y, this.innerWidth, this.tickNumberY))
       }
 
-      addLines(this.visibleGroup, scales, this.labeledData, this.labeledColors, transitionDuration)
+      addLines(this.visibleGroup, this.zoomScales, this.labeledData, this.labeledColors, transitionDuration)
 
       if (this.showDots) {
-        addDots(this.visibleGroup, scales, this.labeledData, this.labeledColors, this.dotsRadius, transitionDuration)
+        addDots(this.visibleGroup, this.zoomScales, this.labeledData, this.labeledColors, this.dotsRadius, transitionDuration)
       }
 
-      this.addTooltip(scales, currentX, transitionDuration);
+      this.addTooltip(currentX, currentLabel, transitionDuration);
     },
-    addTooltip(scales, currentX, transitionDuration) {
+    addTooltip(currentX, currentLabel, transitionDuration) {
       if (this.tooltipType === 'dots') {
         if (!this.tooltipLabel) {
           this.tooltipLabel = addTooltipLabel(this.containerID)
         }
-        addTooltipDots(this.visibleGroup, this.tooltipLabel, scales, this.labeledData, this.labeledColors, this.labeledAxes, this.tooltipDotRadius)
+        addTooltipDots(this.visibleGroup, this.tooltipLabel, this.zoomScales, this.labeledData, this.labeledColors,
+            this.labeledAxes, this.tooltipDotRadius, this.formatX, this.formatY)
       } else if (this.tooltipType === 'lines') {
         if (!this.tooltipLines.horizontal) {
           this.tooltipLines = addTooltipLines(this.visibleGroup, this.innerWidth, this.innerHeight)
           this.tooltipLineLabels = addTooltipLineLabels(this.visibleGroup, this.innerWidth)
         }
-        bindTooltipRectWithLines(this.pointersRect, this.tooltipLines, this.tooltipLineLabels, scales, this.margin.left + 8, this.firstDatumXY,
-            (x) => this.rawSelectedX = x, (d) => this.$emit('xSelected', d.x), () => this.selectedX, currentX, transitionDuration)
+        bindTooltipRectWithLines(this.pointersRect, this.tooltipLines, this.tooltipLineLabels, this.zoomScales, this.margin.left + 8, this.margin.top + 10,
+            this.labeledData, (d) => {
+              this.rawSelectedX = d.x
+              this.rawSelectedLabel = d.label
+            }, (d) => {
+              this.$emit('xSelected', d.x)
+              this.$emit('labelSelected', d.label)
+            },
+            () => this.selectedX, () => this.selectedLabel, currentX, currentLabel, this.formatX, this.formatY, transitionDuration)
       } else {
         console.warn(`Wrong tooltip type value: ${this.tooltipType}`)
       }
@@ -243,9 +254,9 @@ function generateGridY(scaleY, width, tickNumber) {
   return grid
 }
 
-function addAxisY(group, scaleY, width, height, marginLeft, labelY, tickNumber) {
+function addAxisY(group, scaleY, width, height, marginLeft, labelY, tickFormatY, tickNumber) {
   const axisY = group.append('g')
-      .call(axisLeft(scaleY, tickNumber))
+      .call(axisLeft(scaleY, tickFormatY, tickNumber))
       .attr('class', 'unselectable')
 
   axisY.append('text')
@@ -258,8 +269,11 @@ function addAxisY(group, scaleY, width, height, marginLeft, labelY, tickNumber) 
   return axisY
 }
 
-function axisLeft(scaleY, tickNumber) {
+function axisLeft(scaleY, tickFormatY, tickNumber) {
   let axis = d3.axisLeft(scaleY)
+  if (tickFormatY) {
+    axis = axis.tickFormat(tickFormatY)
+  }
   if (tickNumber) {
     axis = axis.ticks(tickNumber)
   }
@@ -331,7 +345,7 @@ function addDots(group, scales, labeledData, labeledColors, radius, duration) {
   dotsSelection.exit().remove()
 }
 
-function addTooltipDots(group, tooltip, scales, labeledData, labeledColors, labeledAxis, radius) {
+function addTooltipDots(group, tooltip, scales, labeledData, labeledColors, labeledAxis, radius, formatX, formatY) {
   const tooltipDotsGroupID = '#tooltipDots'
   let tooltipDotsGroupSelection = group.selectAll(tooltipDotsGroupID).data(labeledData)
   tooltipDotsGroupSelection.enter()
@@ -353,7 +367,7 @@ function addTooltipDots(group, tooltip, scales, labeledData, labeledColors, labe
       .attr('cy', d => scales.y(d.y))
       .on('mouseover', () => tooltip.transition().duration(200).style('opacity', 1))
       .on('mousemove', (event, d) => {
-        tooltip.html(`${labeledAxis.y}: ${d.y}<br/>${labeledAxis.x}: ${d.x}`)
+        tooltip.html(`${labeledAxis.y}: ${formatY ? formatY(d.y) : d.y}<br/>${labeledAxis.x}: ${formatX ? formatX(d.x) : d.x}`)
             .style('left', `${event.layerX + 20}px`)
             .style('top', `${event.layerY - 5}px`)
             .style('border-color', d.color)
@@ -389,33 +403,55 @@ function addTooltipLineLabels(group, width) {
   const horizontalLabelX = groupLabels.append('text')
       .style('text-anchor', 'end')
       .attr('x', width - 5)
+      .classed('unselectable', true)
   const horizontalLabelY = groupLabels.append('text')
       .style('text-anchor', 'end')
+      .style('overflow', 'visible')
       .attr('x', width - 5)
+      .classed('unselectable', true)
   return {horizontalX: horizontalLabelX, horizontalY: horizontalLabelY}
 }
 
-function bindTooltipRectWithLines(rect, lines, labels, scales, biasX, data, onMouseMove, onClick, selectedXFunc, currentX, transitionDuration) {
-  arrangeTooltipLines(lines, labels, scales, getDatumFromX(data, currentX), transitionDuration)
+function bindTooltipRectWithLines(rect, lines, labels, scales, biasX, biasY, labeledData, onMouseMove, onClick, selectedXFunc,
+                                  selectedLabelFunc, currentX, currentLabel, formatX, formatY, transitionDuration) {
+  arrangeTooltipLines(lines, labels, scales, getDatumFromXYLabel(labeledData, currentX, currentLabel), formatX, formatY, transitionDuration)
   rect.on('mousemove', (event) => {
-    onMouseMove(getDatumFromMouseX(scales.x, event.layerX, data, biasX).x)
-    arrangeTooltipLines(lines, labels, scales, getDatumFromMouseX(scales.x, event.layerX, data, biasX))
+    const datum = getDatumFromMouseXY(scales, event.layerX, event.layerY, labeledData, biasX, biasY)
+    onMouseMove(datum)
+    arrangeTooltipLines(lines, labels, scales, datum, formatX, formatY)
   })
-      .on('click', (event) => onClick(getDatumFromMouseX(scales.x, event.layerX, data, biasX)))
-      .on('mouseout', () => arrangeTooltipLines(lines, labels, scales, getDatumFromX(data, selectedXFunc())))
+      .on('click', (event) => onClick(getDatumFromMouseXY(scales, event.layerX, event.layerY, labeledData, biasX, biasY)))
+      .on('mouseout', () => arrangeTooltipLines(lines, labels, scales, getDatumFromXYLabel(labeledData, selectedXFunc(), selectedLabelFunc()), formatX, formatY))
 }
 
-function getDatumFromMouseX(scaleX, mouseX, data, biasX) {
-  const rawX = scaleX.invert(mouseX - biasX)
-  return getDatumFromX(data, rawX)
+function getDatumFromMouseXY(scales, mouseX, mouseY, data, biasX, biasY) {
+  const rawX = scales.x.invert(mouseX - biasX)
+  const rawY = scales.y.invert(mouseY - biasY)
+  return getDatumFromXYLabel(data, rawX, rawY)
 }
 
-function getDatumFromX(data, rawX) {
-  const i = d3.bisector(d => d.x).center(data, rawX)
-  return data[i]
+function getDatumFromXYLabel(labeledData, rawX, rawYLabel) {
+  const i = d3.bisector(d => d.x).center(labeledData[0][1], rawX)
+  let label = ''
+  if (typeof rawYLabel === 'string') {
+    label = rawYLabel
+  } else {
+    label = labeledData[0][0]
+    let minDelta = Math.abs(labeledData[0][1][i].y - rawYLabel)
+    labeledData.forEach(([l, data]) => {
+      const delta = Math.abs(data[i].y - rawYLabel)
+      if (minDelta > delta) {
+        minDelta = delta
+        label = l
+      }
+    })
+  }
+
+  const datum = labeledData.filter(([l,]) => l === label)[0][1][i]
+  return {x: datum.x, y: datum.y, label}
 }
 
-function arrangeTooltipLines(lines, labels, scales, data, transitionDuration = 0) {
+function arrangeTooltipLines(lines, labels, scales, data, formatX, formatY, transitionDuration = 0) {
   lines.horizontal
       .transition()
       .duration(transitionDuration)
@@ -426,17 +462,16 @@ function arrangeTooltipLines(lines, labels, scales, data, transitionDuration = 0
       .duration(transitionDuration)
       .attr('x1', scales.x(data.x))
       .attr('x2', scales.x(data.x))
-  labels.horizontalY
-      .transition()
-      .duration(transitionDuration)
-      .attr('y', scales.y(data.y) - 7)
-      .text(data.y.toLocaleString('fr-FR', {maximumFractionDigits: 3}))
   labels.horizontalX
       .transition()
       .duration(transitionDuration)
       .attr('y', scales.y(data.y) + 18)
-      .text(data.x)
-
+      .text(formatX ? formatX(data.x) : data.x)
+  labels.horizontalY
+      .transition()
+      .duration(transitionDuration)
+      .attr('y', scales.y(data.y) - 7)
+      .text(formatY ? formatY(data.y) : data.y)
 }
 </script>
 

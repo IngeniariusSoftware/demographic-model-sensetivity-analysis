@@ -33,6 +33,7 @@ export default {
     tickNumberX: {type: Number, required: false, default: undefined},
     tickNumberY: {type: Number, required: false, default: undefined},
     tickFormatX: {type: Function, required: false, default: undefined},
+    tickFormatY: {type: Function, required: false, default: undefined},
   },
   computed: {
     containerID() {
@@ -77,7 +78,7 @@ export default {
         this.margin.bottom, this.labeledAxes.x, this.tickFormatX, this.tickNumberX)
     this.axes.leftX = axesX.left
     this.axes.rightX = axesX.right
-    this.axes.y = addAxisY(this.rootGroup, this.scales.y, this.innerWidth, this.innerHeight, this.margin.left, this.labeledAxes.y)
+    this.axes.y = addAxisY(this.rootGroup, this.scales.y, this.innerWidth, this.innerHeight, this.margin.left, this.labeledAxes.y, this.tickFormatY, this.tickNumberY)
     this.titleText = addTitle(this.rootGroup, this.title, this.innerWidth, this.height, this.margin)
     this.pointersRect = addPointersRect(this.rootGroup, this.innerWidth, this.innerHeight)
     addLeftRightBars(this.rootGroup, this.scales, this.labeledData, this.labeledColors, 0)
@@ -90,7 +91,7 @@ export default {
     updateLineChart() {
       this.axes.leftX.transition().duration(this.transitionDuration).call(axisBottom(this.scales.leftX, this.tickFormatX, this.tickNumberX))
       this.axes.rightX.transition().duration(this.transitionDuration).call(axisBottom(this.scales.rightX, this.tickFormatX, this.tickNumberX))
-      this.axes.y.transition().duration(this.transitionDuration).call(axisLeft(this.scales.y, this.tickNumberY))
+      this.axes.y.transition().duration(this.transitionDuration).call(axisLeft(this.scales.y, this.tickFormatY, this.tickNumberY))
       addLeftRightBars(this.rootGroup, this.scales, this.labeledData, this.labeledColors, this.transitionDuration)
       bindTooltipRectWithLabels(this.pointersRect, this.tooltipRect, this.tooltipLabels, this.scales.y, this.margin.top, this.labeledData[0][1], this.labeledData[1][1])
       updateDataLabels(this.dataLabels, this.labeledData, this.labeledColors)
@@ -140,10 +141,10 @@ function addAxesX(group, leftScaleX, rightScaleX, width, height, marginBottom, l
   return {left: leftAxisX, right: rightAxisX}
 }
 
-function axisBottom(scaleX, tickFormatX, tickNumber) {
-  let axis = d3.axisBottom(scaleX)
-  if (tickFormatX) {
-    axis = axis.tickFormat(tickFormatX)
+function axisBottom(scale, tickFormat, tickNumber) {
+  let axis = d3.axisBottom(scale)
+  if (tickFormat) {
+    axis = axis.tickFormat(tickFormat)
   }
   if (tickNumber) {
     axis = axis.ticks(tickNumber)
@@ -152,9 +153,9 @@ function axisBottom(scaleX, tickFormatX, tickNumber) {
   return axis
 }
 
-function addAxisY(group, scaleY, width, height, marginLeft, labelY, tickNumber) {
+function addAxisY(group, scaleY, width, height, marginLeft, labelY, tickFormatY, tickNumberY) {
   const axisY = group.append('g')
-      .call(axisLeft(scaleY, tickNumber))
+      .call(axisLeft(scaleY, tickFormatY, tickNumberY))
       .attr('class', 'unselectable')
 
   axisY.append('text')
@@ -167,8 +168,11 @@ function addAxisY(group, scaleY, width, height, marginLeft, labelY, tickNumber) 
   return axisY
 }
 
-function axisLeft(scaleY, tickNumber) {
-  let axis = d3.axisLeft(scaleY)
+function axisLeft(scale, tickFormat, tickNumber) {
+  let axis = d3.axisLeft(scale)
+  if (tickFormat) {
+    axis = axis.tickFormat(tickFormat)
+  }
   if (tickNumber) {
     axis = axis.ticks(tickNumber)
   }
