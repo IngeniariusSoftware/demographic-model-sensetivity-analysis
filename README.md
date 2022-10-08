@@ -12,4 +12,4 @@ This is a graphic demonstration of the demographics of different countries accor
 
 - Population pyramid bars contain hint data about the number of people. Just point your mouse cursor at some bar
 
-Link to the demonstration:
+Link to the demonstration: https://ingeniariussoftware.github.io/demographic-model/
