@@ -54,7 +54,7 @@
                 :labeledData="countrySurvivalRatesData"
                 :labeled-colors="femaleMaleLabeledColors"
                 :labeled-axes="{x: 'Age group', y: 'Survival rate'}"
-                :margin="{top: 17, right: 12, bottom: 32, left: 27}"
+                :margin="{top: 17, right: 12, bottom: 32, left: 29}"
                 :width="width * 0.3"
                 :height="height * 0.32"
                 :format-x="x => FiveYearAges[x]"
