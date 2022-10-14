@@ -59,130 +59,132 @@
       <q-tr :props="props">
         <q-td key="year" :props="props">{{ props.row.year }}</q-td>
         <q-td key="sex" :props="props">{{ props.row.sex }}</q-td>
-        <q-td key="0-4" :props="props">
-          {{ props.row['0-4'].toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
-          <q-popup-edit v-model="props.row['0-4']" title="Update 5-9" buttons v-slot="scope">
-            <q-input type="number" v-model.number="scope.value" dense autofocus />
+        <q-td key="0-4" :props="props"> {{
+            Number(props.row['0-4']).toLocaleString('fr-FR', {maximumFractionDigits: 3})
+          }}
+          <q-popup-edit v-model="props.row['0-4']" title="Update 0-4" buttons v-slot="scope">
+            <q-input type="number" v-model.number="scope.value" dense autofocus/>
           </q-popup-edit>
         </q-td>
-        <q-td key="5-9" :props="props">
-          {{ props.row['5-9'].toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
+        <q-td key="5-9" :props="props"> {{
+            Number(props.row['5-9']).toLocaleString('fr-FR', {maximumFractionDigits: 3})
+          }}
           <q-popup-edit v-model="props.row['5-9']" title="Update 5-9" buttons v-slot="scope">
-            <q-input type="number" v-model.number="scope.value" dense autofocus />
+            <q-input type="number" v-model.number="scope.value" dense autofocus/>
           </q-popup-edit>
         </q-td>
         <q-td key="10-14" :props="props">
-          {{ props.row['10-14'].toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
-          <q-popup-edit v-model="props.row['10-14']" title="Update 5-9" buttons v-slot="scope">
-            <q-input type="number" v-model.number="scope.value" dense autofocus />
+          {{ Number(props.row['10-14']).toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
+          <q-popup-edit v-model="props.row['10-14']" title="Update 10-14" buttons v-slot="scope">
+            <q-input type="number" v-model.number="scope.value" dense autofocus/>
           </q-popup-edit>
         </q-td>
         <q-td key="15-19" :props="props">
-          {{ props.row['15-19'].toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
-          <q-popup-edit v-model="props.row['15-19']" title="Update 5-9" buttons v-slot="scope">
-            <q-input type="number" v-model.number="scope.value" dense autofocus />
+          {{ Number(props.row['15-19']).toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
+          <q-popup-edit v-model="props.row['15-19']" title="Update 15-19" buttons v-slot="scope">
+            <q-input type="number" v-model.number="scope.value" dense autofocus/>
           </q-popup-edit>
         </q-td>
         <q-td key="20-24" :props="props">
-          {{ props.row['20-24'].toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
-          <q-popup-edit v-model="props.row['20-24']" title="Update 5-9" buttons v-slot="scope">
-            <q-input type="number" v-model.number="scope.value" dense autofocus />
+          {{ Number(props.row['20-24']).toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
+          <q-popup-edit v-model="props.row['20-24']" title="Update 20-24" buttons v-slot="scope">
+            <q-input type="number" v-model.number="scope.value" dense autofocus/>
           </q-popup-edit>
         </q-td>
         <q-td key="25-29" :props="props">
-          {{ props.row['25-29'].toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
-          <q-popup-edit v-model="props.row['25-29']" title="Update 5-9" buttons v-slot="scope">
-            <q-input type="number" v-model.number="scope.value" dense autofocus />
+          {{ Number(props.row['25-29']).toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
+          <q-popup-edit v-model="props.row['25-29']" title="Update 25-29" buttons v-slot="scope">
+            <q-input type="number" v-model.number="scope.value" dense autofocus/>
           </q-popup-edit>
         </q-td>
         <q-td key="30-34" :props="props">
-          {{ props.row['30-34'].toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
-          <q-popup-edit v-model="props.row['30-34']" title="Update 5-9" buttons v-slot="scope">
-            <q-input type="number" v-model.number="scope.value" dense autofocus />
+          {{ Number(props.row['30-34']).toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
+          <q-popup-edit v-model="props.row['30-34']" title="Update 30-34" buttons v-slot="scope">
+            <q-input type="number" v-model.number="scope.value" dense autofocus/>
           </q-popup-edit>
         </q-td>
         <q-td key="35-39" :props="props">
-          {{ props.row['35-39'].toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
-          <q-popup-edit v-model="props.row['35-39']" title="Update 5-9" buttons v-slot="scope">
-            <q-input type="number" v-model.number="scope.value" dense autofocus />
+          {{ Number(props.row['35-39']).toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
+          <q-popup-edit v-model="props.row['35-39']" title="Update 35-39" buttons v-slot="scope">
+            <q-input type="number" v-model.number="scope.value" dense autofocus/>
           </q-popup-edit>
         </q-td>
         <q-td key="40-44" :props="props">
-          {{ props.row['40-44'].toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
-          <q-popup-edit v-model="props.row['40-44']" title="Update 5-9" buttons v-slot="scope">
-            <q-input type="number" v-model.number="scope.value" dense autofocus />
+          {{ Number(props.row['40-44']).toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
+          <q-popup-edit v-model="props.row['40-44']" title="Update 40-44" buttons v-slot="scope">
+            <q-input type="number" v-model.number="scope.value" dense autofocus/>
           </q-popup-edit>
         </q-td>
         <q-td key="45-49" :props="props">
-          {{ props.row['45-49'].toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
-          <q-popup-edit v-model="props.row['45-49']" title="Update 5-9" buttons v-slot="scope">
-            <q-input type="number" v-model.number="scope.value" dense autofocus />
+          {{ Number(props.row['45-49']).toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
+          <q-popup-edit v-model="props.row['45-49']" title="Update 45-49" buttons v-slot="scope">
+            <q-input type="number" v-model.number="scope.value" dense autofocus/>
           </q-popup-edit>
         </q-td>
         <q-td key="50-54" :props="props">
-          {{ props.row['50-54'].toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
-          <q-popup-edit v-model="props.row['50-54']" title="Update 5-9" buttons v-slot="scope">
-            <q-input type="number" v-model.number="scope.value" dense autofocus />
+          {{ Number(props.row['50-54']).toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
+          <q-popup-edit v-model="props.row['50-54']" title="Update 50-54" buttons v-slot="scope">
+            <q-input type="number" v-model.number="scope.value" dense autofocus/>
           </q-popup-edit>
         </q-td>
         <q-td key="55-59" :props="props">
-          {{ props.row['55-59'].toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
-          <q-popup-edit v-model="props.row['55-59']" title="Update 5-9" buttons v-slot="scope">
-            <q-input type="number" v-model.number="scope.value" dense autofocus />
+          {{ Number(props.row['55-59']).toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
+          <q-popup-edit v-model="props.row['55-59']" title="Update 55-59" buttons v-slot="scope">
+            <q-input type="number" v-model.number="scope.value" dense autofocus/>
           </q-popup-edit>
         </q-td>
         <q-td key="60-64" :props="props">
-          {{ props.row['60-64'].toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
-          <q-popup-edit v-model="props.row['60-64']" title="Update 5-9" buttons v-slot="scope">
-            <q-input type="number" v-model.number="scope.value" dense autofocus />
+          {{ Number(props.row['60-64']).toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
+          <q-popup-edit v-model="props.row['60-64']" title="Update 60-64" buttons v-slot="scope">
+            <q-input type="number" v-model.number="scope.value" dense autofocus/>
           </q-popup-edit>
         </q-td>
         <q-td key="65-69" :props="props">
-          {{ props.row['65-69'].toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
-          <q-popup-edit v-model="props.row['65-69']" title="Update 5-9" buttons v-slot="scope">
-            <q-input type="number" v-model.number="scope.value" dense autofocus />
+          {{ Number(props.row['65-69']).toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
+          <q-popup-edit v-model="props.row['65-69']" title="Update 65-69" buttons v-slot="scope">
+            <q-input type="number" v-model.number="scope.value" dense autofocus/>
           </q-popup-edit>
         </q-td>
         <q-td key="70-74" :props="props">
-          {{ props.row['70-74'].toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
-          <q-popup-edit v-model="props.row['70-74']" title="Update 5-9" buttons v-slot="scope">
-            <q-input type="number" v-model.number="scope.value" dense autofocus />
+          {{ Number(props.row['70-74']).toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
+          <q-popup-edit v-model="props.row['70-74']" title="Update 70-74" buttons v-slot="scope">
+            <q-input type="number" v-model.number="scope.value" dense autofocus/>
           </q-popup-edit>
         </q-td>
         <q-td key="75-79" :props="props">
-          {{ props.row['75-79'].toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
-          <q-popup-edit v-model="props.row['75-79']" title="Update 5-9" buttons v-slot="scope">
-            <q-input type="number" v-model.number="scope.value" dense autofocus />
+          {{ Number(props.row['75-79']).toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
+          <q-popup-edit v-model="props.row['75-79']" title="Update 75-79" buttons v-slot="scope">
+            <q-input type="number" v-model.number="scope.value" dense autofocus/>
           </q-popup-edit>
         </q-td>
         <q-td key="80-84" :props="props">
-          {{ props.row['80-84'].toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
-          <q-popup-edit v-model="props.row['80-84']" title="Update 5-9" buttons v-slot="scope">
-            <q-input type="number" v-model.number="scope.value" dense autofocus />
+          {{ Number(props.row['80-84']).toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
+          <q-popup-edit v-model="props.row['80-84']" title="Update 80-84" buttons v-slot="scope">
+            <q-input type="number" v-model.number="scope.value" dense autofocus/>
           </q-popup-edit>
         </q-td>
         <q-td key="85-89" :props="props">
-          {{ props.row['85-89'].toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
-          <q-popup-edit v-model="props.row['85-89']" title="Update 5-9" buttons v-slot="scope">
-            <q-input type="number" v-model.number="scope.value" dense autofocus />
+          {{ Number(props.row['85-89']).toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
+          <q-popup-edit v-model="props.row['85-89']" title="Update 85-89" buttons v-slot="scope">
+            <q-input type="number" v-model.number="scope.value" dense autofocus/>
           </q-popup-edit>
         </q-td>
         <q-td key="90-94" :props="props">
-          {{ props.row['90-94'].toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
-          <q-popup-edit v-model="props.row['90-94']" title="Update 5-9" buttons v-slot="scope">
-            <q-input type="number" v-model.number="scope.value" dense autofocus />
+          {{ Number(props.row['90-94']).toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
+          <q-popup-edit v-model="props.row['90-94']" title="Update 90-94" buttons v-slot="scope">
+            <q-input type="number" v-model.number="scope.value" dense autofocus/>
           </q-popup-edit>
         </q-td>
         <q-td key="95-99" :props="props">
-          {{ props.row['95-99'].toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
-          <q-popup-edit v-model="props.row['95-99']" title="Update 5-9" buttons v-slot="scope">
-            <q-input type="number" v-model.number="scope.value" dense autofocus />
+          {{ Number(props.row['95-99']).toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
+          <q-popup-edit v-model="props.row['95-99']" title="Update 95-99" buttons v-slot="scope">
+            <q-input type="number" v-model.number="scope.value" dense autofocus/>
           </q-popup-edit>
         </q-td>
         <q-td key="100+" :props="props">
-          {{ props.row['100+'].toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
-          <q-popup-edit v-model="props.row['100+']" title="Update 5-9" buttons v-slot="scope">
-            <q-input type="number" v-model.number="scope.value" dense autofocus />
+          {{ Number(props.row['100+']).toLocaleString('fr-FR', {maximumFractionDigits: 3}) }}
+          <q-popup-edit v-model="props.row['100+']" title="Update 100+" buttons v-slot="scope">
+            <q-input type="number" v-model.number="scope.value" dense autofocus/>
           </q-popup-edit>
         </q-td>
       </q-tr>
