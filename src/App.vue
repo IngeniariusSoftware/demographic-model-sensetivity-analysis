@@ -18,9 +18,9 @@
             :title="`Treemap`"
             :data="treemapData"
             :labeled-colors="treemapLabeledColors"
-            :margin="{top: 17, right: 12, bottom: 32, left: 12}"
+            :margin="{top: 17, right: 12, bottom: 12, left: 12}"
             :width="width * 0.33"
-            :height="height * 0.7"
+            :height="height * 0.71"
         ></Treemap>
       </q-card-section>
     </q-card>
@@ -29,12 +29,13 @@
         <LinesChart
             id="3"
             title="Population"
-            :labeledData="countryPopulationGroupByYearData"
+            :labeled-lines-data="countryPopulationGroupByYearData"
+            :labeled-ranges-data="countryRangesPredictedData"
             :labeled-colors="populationLabeledColors"
             :labeled-axes="{x: 'Year', y: 'Population'}"
             :margin="margin"
             :width="width * 0.6"
-            :height="height * 0.32"
+            :height="height * 0.52"
             :show-grid="false"
             :format-x="x => x"
             :format-y="y => Number(y).toLocaleString('fr-FR', {maximumFractionDigits: 3})"
@@ -66,12 +67,12 @@
       </q-card-section>
     </q-card>
     <div>
-      <q-card  style="margin-bottom: 5px">
+      <q-card style="margin-bottom: 5px">
         <q-card-section>
           <LinesChart
               id="5"
               title="Demographic profile"
-              :labeledData="countryDemographicProfileData"
+              :labeledLinesData="countryDemographicProfileData"
               :labeled-colors="demographicProfileLabeledColors"
               :labeled-axes="{x: 'Age group', y: 'Population'}"
               :margin="margin"
@@ -87,7 +88,7 @@
           <LinesChart
               id="6"
               :title="`Survival rate ${this.ageSelect.start}→${this.ageSelect.end}`"
-              :labeledData="countrySurvivalRatesData"
+              :labeledLinesData="countrySurvivalRatesData"
               :labeled-colors="femaleMaleLabeledColors"
               :labeled-axes="{x: 'Age group', y: 'Survival rate'}"
               :margin="{top: 17, right: 12, bottom: 32, left: 29}"
@@ -106,6 +107,7 @@ import PopulationTable from './components/PopulationTable'
 import LinesChart from "@/components/LinesChart"
 import populationDataCSV from '@/data/population.csv'
 import sensitivityDataCSV from '@/data/sensitivity_analysis.csv'
+import countriesRangesDataCSV from '@/data/countries_ranges.csv'
 import {FiveYearAges} from "@/data/FiveYearAges"
 import TwoValuesPyramid from "@/components/TwoValuesPyramid"
 import Treemap from '@/components/Treemap'
@@ -116,6 +118,7 @@ export default {
   data() {
     const indexedPopulationCountries = this.indexByCountry(populationDataCSV)
     const indexedSensitivityCountries = this.indexByCountry(sensitivityDataCSV)
+    const indexedRangesCountries = this.indexByCountry(countriesRangesDataCSV)
     const countries = Object.keys(indexedPopulationCountries)
     const selectedCountry = countries[Math.floor(Math.random() * countries.length)]
     const stepYear = 5
@@ -130,10 +133,12 @@ export default {
     return {
       populationDataCSV,
       sensitivityDataCSV,
+      countriesRangesDataCSV,
       selectedCountry,
       countries,
       indexedPopulationCountries,
       indexedSensitivityCountries,
+      indexedRangesCountries,
       ageSelect,
       margin,
       selectedYear,
@@ -161,11 +166,14 @@ export default {
     sensitivityCountryIndex() {
       return this.indexedSensitivityCountries[this.selectedCountry]
     },
+    rangesCountryIndex() {
+      return this.indexedRangesCountries[this.selectedCountry]
+    },
     demographicProfileLabeledColors() {
       return {[this.ageSelect.start]: 'orange', [this.ageSelect.end]: 'red'}
     },
     populationLabeledColors() {
-      return {'My': 'green', 'United Nations': '#800049'}
+      return {'My': '#2980b9', 'MyArea': '#ecf0f1', 'United Nations': '#c0392b9f'}
     },
     femaleMaleLabeledColors() {
       return {Female: '#ee7989', Male: '#4682B4'}
@@ -228,7 +236,7 @@ export default {
           const female = data[i]
           const male = data[i + 1]
           Object.values(FiveYearAges).forEach(age => yearPopulation += male[age] + female[age])
-          result.push({x: data[i].year, y: round(yearPopulation, 3)})
+          result.push({x: data[i].year, y: round(yearPopulation)})
         }
 
         groupedData.push([dataName, result])
@@ -283,6 +291,31 @@ export default {
         {id: '50-54 M', parentID: 'male', value: datum['50-54_male']},
         {id: 'fertility', parentID: '_fertility', value: datum['fertility']},
       ]
+    },
+    countryRangesPredictedData() {
+      const data = this.countriesRangesDataCSV.slice(this.rangesCountryIndex.start, this.rangesCountryIndex.end)[0]
+      const fertility = JSON.parse(data['fertility'])
+      const female_percentage = JSON.parse(data['female_percentage'])
+      const minPredict = this.countryPopulationYearSelect.slice(2, 4).concat(predict(this.countryPopulationYearSelect, this.maxYear, fertility[0], female_percentage[0]))
+      const maxPredict = this.countryPopulationYearSelect.slice(2, 4).concat(predict(this.countryPopulationYearSelect, this.maxYear, fertility[1], female_percentage[1]))
+
+      const result = []
+      for (let i = 0; i < minPredict.length; i += 2) {
+        let yearMinPopulation = 0
+        const minFemale = minPredict[i]
+        const minMale = minPredict[i + 1]
+
+        let yearMaxPopulation = 0
+        const maxFemale = maxPredict[i]
+        const maxMale = maxPredict[i + 1]
+        Object.values(FiveYearAges).forEach(age => {
+          yearMinPopulation += minFemale[age] + minMale[age]
+          yearMaxPopulation += maxFemale[age] + maxMale[age]
+        })
+        result.push({x: minPredict[i].year, y0: round(yearMinPopulation), y1: round(yearMaxPopulation)})
+      }
+
+      return [['MyArea', result]]
     }
   },
   methods: {

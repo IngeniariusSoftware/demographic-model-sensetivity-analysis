@@ -13,9 +13,6 @@ export default {
     return {
       rootGroup: Selection,
       titleText: Selection,
-      rectsGroup: Selection,
-      labelsGroup: Selection,
-      valuesGroup: Selection,
       treemap: Selection,
       treemapRoot: Selection,
       dataLabels: {left: Selection, right: Selection},
@@ -57,17 +54,14 @@ export default {
   mounted() {
     this.rootGroup = addRootGroup(this.containerID, this.width, this.height, this.margin)
     this.titleText = addTitle(this.rootGroup, this.title, this.innerWidth, this.height, this.margin)
-    this.rectsGroup = this.rootGroup.append('g')
-    this.labelsGroup = this.rootGroup.append('g')
-    this.valuesGroup = this.rootGroup.append('g')
     this.treemap = addTreemap(this.innerWidth, this.innerHeight)
     this.treemapRoot = addRootToTreemap(this.treemap, this.data)
-    addTreeNodes(this.rectsGroup, this.labelsGroup, this.valuesGroup, this.treemapRoot, this.labeledColors, 0)
+    addTreeNodes(this.rootGroup, this.treemapRoot, this.labeledColors, 0)
   },
   methods: {
     updateLineChart() {
       this.treemapRoot = addRootToTreemap(this.treemap, this.data)
-      addTreeNodes(this.rectsGroup, this.labelsGroup, this.valuesGroup, this.treemapRoot, this.labeledColors, this.transitionDuration)
+      addTreeNodes(this.rootGroup, this.treemapRoot, this.labeledColors, this.transitionDuration)
     },
   }
 }
@@ -104,8 +98,32 @@ function addRootToTreemap(treemap, data) {
   return root
 }
 
-function addTreeNodes(rectsGroup, labelsGroup, valuesGroup, root, labeledColors, duration) {
-  const rectsSelection = rectsGroup.selectAll('rect').data(root.leaves())
+function addTreeNodes(group, root, labeledColors, duration) {
+  const treemapGroupID = '#treemap'
+  let treemapGroupSelection = group.selectAll(treemapGroupID).data([root])
+  treemapGroupSelection.enter()
+      .append('g')
+      .attr('id', treemapGroupID.replace('#', ''))
+      .classed('unselectable', true)
+      .style('pointer-select', 'none')
+  treemapGroupSelection.exit().remove()
+
+  treemapGroupSelection = group.selectAll(treemapGroupID)
+  addTreeRects(treemapGroupSelection, root, labeledColors, duration)
+  addTreeRectsLabels(treemapGroupSelection, root, duration)
+  addTreeRectsValues(treemapGroupSelection, root, duration)
+}
+
+function addTreeRects(groups, root, labeledColors, duration) {
+  const rectsGroupID = '#rects'
+  let rectsGroupsSelection = groups.selectAll(rectsGroupID).data([root])
+  rectsGroupsSelection.enter()
+      .append('g')
+      .attr('id', rectsGroupID.replace('#', ''))
+  rectsGroupsSelection.exit().remove()
+
+  rectsGroupsSelection = groups.selectAll(rectsGroupID)
+  const rectsSelection = rectsGroupsSelection.selectAll('rect').data(root.leaves())
   rectsSelection.enter()
       .append('rect')
       .style('stroke', 'black')
@@ -118,8 +136,18 @@ function addTreeNodes(rectsGroup, labelsGroup, valuesGroup, root, labeledColors,
       .attr('width', d => d.x1 - d.x0)
       .attr('height', d => d.y1 - d.y0)
   rectsSelection.exit().remove()
+}
 
-  const labelsSelection = labelsGroup.selectAll('text').data(root.leaves())
+function addTreeRectsLabels(groups, root, duration) {
+  const labelsGroupID = '#labels'
+  let labelsGroupsSelection = groups.selectAll(labelsGroupID).data([root])
+  labelsGroupsSelection.enter()
+      .append('g')
+      .attr('id', labelsGroupID.replace('#', ''))
+  labelsGroupsSelection.exit().remove()
+
+  labelsGroupsSelection = groups.selectAll(labelsGroupID)
+  const labelsSelection = labelsGroupsSelection.selectAll('text').data(root.leaves())
   labelsSelection.enter()
       .append('text')
       .attr('fill', 'white')
@@ -129,11 +157,21 @@ function addTreeNodes(rectsGroup, labelsGroup, valuesGroup, root, labeledColors,
       .transition()
       .duration(duration)
       .attr('font-size', d => fontSize(d))
-      .attr('x', d => ((d.x1 - d.x0) * 0.03) + d.x0)
+      .attr('x', d => (d.x0 + (d.x1 - d.x0) * 0.03))
       .attr('y', d => d.y0 + ((d.y1 - d.y0) * 0.03) + fontSize(d))
   labelsSelection.exit().remove()
+}
 
-  const valuesSelection = valuesGroup.selectAll('text').data(root.leaves())
+function addTreeRectsValues(groups, root, duration) {
+  const valuesGroupID = '#values'
+  let valuesGroupsSelection = groups.selectAll(valuesGroupID).data([root])
+  valuesGroupsSelection.enter()
+      .append('g')
+      .attr('id', valuesGroupID.replace('#', ''))
+  valuesGroupsSelection.exit().remove()
+
+  valuesGroupsSelection = groups.selectAll(valuesGroupID)
+  const valuesSelection = valuesGroupsSelection.selectAll('text').data(root.leaves())
   valuesSelection.enter()
       .append('text')
       .attr('fill', 'white')

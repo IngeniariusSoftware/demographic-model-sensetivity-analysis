@@ -3,11 +3,11 @@ import {sum} from "d3-array";
 
 export const fertilityAgeGroups = ['20-24', '25-29', '30-34', '35-39']
 
-export function predict(data, endYear) {
+export function predict(data, endYear, fertility, female_percentage, femaleSurvivalRates, maleSurvivalRates) {
     const predictedData = []
     const stepYear = 5
-    const survivalRate = getSurvivalRates(...data)
-    const birthRates = getBirthRates(data[2], data[3])
+    const survivalRate = getSurvivalRates(data[0], data[1], data[2], data[3], femaleSurvivalRates, maleSurvivalRates)
+    const birthRates = getBirthRates(data[2], data[3], fertility, female_percentage)
     const startYear = data[2].year
     const ageGroups = Object.values(FiveYearAges)
     const survivedAgeGroups = Object.values(FiveYearAges).slice(1)
@@ -30,12 +30,14 @@ export function predict(data, endYear) {
     return predictedData
 }
 
-export function getBirthRates(femaleData, maleData) {
+export function getBirthRates(femaleData, maleData, fertility, female_percentage) {
     const womenCount = sum(fertilityAgeGroups.map(age => femaleData[age]))
-    return {Female: femaleData['0-4'] / womenCount, Male: maleData['0-4'] / womenCount}
+    fertility = fertility ? fertility / fertilityAgeGroups.length : (femaleData['0-4'] + maleData['0-4']) / womenCount
+    female_percentage = female_percentage ? female_percentage : femaleData['0-4'] / (femaleData['0-4'] + maleData['0-4'])
+    return {Female: fertility * female_percentage, Male: fertility * (1 - female_percentage)}
 }
 
-function getSurvivalRates(femaleYearStartData, maleYearStartData, femaleYearEndData, maleYearEndData) {
+function getSurvivalRates(femaleYearStartData, maleYearStartData, femaleYearEndData, maleYearEndData, femaleSurvivalRates, maleSurvivalRates) {
     const survivalRates = [{}, {}]
     Object.values(FiveYearAges).forEach((age, i, ages) => {
         if (i < ages.length - 1) {
@@ -43,6 +45,18 @@ function getSurvivalRates(femaleYearStartData, maleYearStartData, femaleYearEndD
             survivalRates[1][age] = getSurvivalRate(maleYearStartData[age], maleYearEndData[ages[i + 1]])
         }
     })
+
+    if (femaleSurvivalRates) {
+        Object.entries(([age, value]) => {
+            survivalRates[0][age] = value
+        })
+    }
+
+    if (maleSurvivalRates) {
+        Object.entries(([age, value]) => {
+            survivalRates[1][age] = value
+        })
+    }
 
     return {Female: survivalRates[0], Male: survivalRates[1]}
 }

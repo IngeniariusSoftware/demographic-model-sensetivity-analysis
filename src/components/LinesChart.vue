@@ -35,7 +35,8 @@ export default {
   props: {
     title: {type: String, required: true},
     id: {type: String, required: true},
-    labeledData: {type: Object, required: true},
+    labeledLinesData: {type: Object, required: true},
+    labeledRangesData: {type: Object, required: false},
     labeledColors: {type: Object, required: true},
     labeledAxes: {type: Object, required: true},
     margin: {type: Object, required: true},
@@ -75,7 +76,15 @@ export default {
       return this.dotsRadius * 3
     },
     dataXY() {
-      return this.labeledData.reduce((result, [, data]) => result.concat(data), [])
+      let data = this.labeledLinesData.reduce((result, [, datum]) => result.concat(datum), [])
+      if (this.labeledRangesData) {
+        data = data.concat(this.labeledRangesData.reduce((result, [, datum]) => result.concat(...datum.map(d => [{
+          x: d.x,
+          y: d.y0
+        }, {x: d.x, y: d.y1}])), []))
+      }
+
+      return data
     },
     scales() {
       const scaleX = d3.scaleLinear()
@@ -88,7 +97,7 @@ export default {
     },
   },
   watch: {
-    labeledData() {
+    labeledLinesData() {
       this.zoomScales = {x: this.scales.x, y: this.scales.y}
       this.updateLineChart(this.selectedX, this.selectedLabel, this.transitionDuration)
     },
@@ -108,9 +117,12 @@ export default {
     addLegend(this.rootGroup, this.title, this.innerWidth, this.height, this.margin)
     this.addZoom(this.rootGroup, this.width, this.height, this.innerWidth, this.innerHeight, this.zoom.min, this.zoom.max)
     this.visibleGroup = addVisibleGroup(this.rootGroup, this.visibleAreaID, this.innerWidth, this.innerHeight)
-    addLines(this.visibleGroup, this.zoomScales, this.labeledData, this.labeledColors, 0)
+    if (this.labeledRangesData) {
+      addAreas(this.visibleGroup, this.zoomScales, this.labeledRangesData, this.labeledColors, 0)
+    }
+    addLines(this.visibleGroup, this.zoomScales, this.labeledLinesData, this.labeledColors, 0)
     if (this.showDots) {
-      addDots(this.visibleGroup, this.zoomScales, this.labeledData, this.labeledColors, this.dotsRadius, 0)
+      addDots(this.visibleGroup, this.zoomScales, this.labeledLinesData, this.labeledColors, this.dotsRadius, 0)
     }
     this.addTooltip(this.selectedX, this.selectedLabel)
   },
@@ -141,10 +153,13 @@ export default {
         this.grid.y.call(generateGridY(this.zoomScales.y, this.innerWidth, this.tickNumberY))
       }
 
-      addLines(this.visibleGroup, this.zoomScales, this.labeledData, this.labeledColors, transitionDuration)
+      if (this.labeledRangesData) {
+        addAreas(this.visibleGroup, this.zoomScales, this.labeledRangesData, this.labeledColors, transitionDuration)
+      }
+      addLines(this.visibleGroup, this.zoomScales, this.labeledLinesData, this.labeledColors, transitionDuration)
 
       if (this.showDots) {
-        addDots(this.visibleGroup, this.zoomScales, this.labeledData, this.labeledColors, this.dotsRadius, transitionDuration)
+        addDots(this.visibleGroup, this.zoomScales, this.labeledLinesData, this.labeledColors, this.dotsRadius, transitionDuration)
       }
 
       this.addTooltip(currentX, currentLabel, transitionDuration);
@@ -154,7 +169,7 @@ export default {
         if (!this.tooltipLabel) {
           this.tooltipLabel = addTooltipLabel(this.containerID)
         }
-        addTooltipDots(this.visibleGroup, this.tooltipLabel, this.zoomScales, this.labeledData, this.labeledColors,
+        addTooltipDots(this.visibleGroup, this.tooltipLabel, this.zoomScales, this.labeledLinesData, this.labeledColors,
             this.labeledAxes, this.tooltipDotRadius, this.formatX, this.formatY)
       } else if (this.tooltipType === 'lines') {
         if (!this.tooltipLines.horizontal) {
@@ -162,7 +177,7 @@ export default {
           this.tooltipLineLabels = addTooltipLineLabels(this.visibleGroup, this.innerWidth)
         }
         bindTooltipRectWithLines(this.pointersRect, this.tooltipLines, this.tooltipLineLabels, this.zoomScales, this.margin.left + 8, this.margin.top + 10,
-            this.labeledData, (d) => {
+            this.labeledLinesData, (d) => {
               this.rawSelectedX = d.x
               this.rawSelectedLabel = d.label
             }, (d) => {
@@ -304,9 +319,11 @@ function addVisibleGroup(group, id, width, height) {
 }
 
 function addLines(group, scales, labeledData, labeledColors, duration) {
-  const pathSelection = group.selectAll('path').data(labeledData)
+  const pathID = '#path'
+  const pathSelection = group.selectAll(pathID).data(labeledData)
   pathSelection.enter()
       .append('path')
+      .attr('id', pathID.replace('#', ''))
       .attr('fill', 'none')
       .attr('stroke-width', 2)
       .attr('class', 'unselectable')
@@ -319,13 +336,32 @@ function addLines(group, scales, labeledData, labeledColors, duration) {
   pathSelection.exit().remove()
 }
 
+function addAreas(group, scales, labeledData, labeledColors, duration) {
+  const areaID = '#area'
+  const areaSelection = group.selectAll(areaID).data(labeledData)
+  areaSelection.enter()
+      .append('path')
+      .attr('id', areaID.replace('#', ''))
+      .attr('class', 'unselectable area')
+      .merge(areaSelection)
+      .attr('fill', ([label,]) => labeledColors[label])
+      .datum(([, data]) => data)
+      .transition()
+      .duration(duration)
+      .attr("d", d3.area()
+          .x(d => scales.x(d.x))
+          .y0(d => scales.y(d.y0))
+          .y1(d => scales.y(d.y1)))
+  areaSelection.exit().remove()
+}
+
 function addDots(group, scales, labeledData, labeledColors, radius, duration) {
   const dotsGroupID = '#dots'
   let dotsGroupsSelection = group.selectAll(dotsGroupID).data(labeledData)
   dotsGroupsSelection.enter()
       .append('g')
       .attr('id', dotsGroupID.replace('#', ''))
-      .attr('stroke-width', '1.5px')
+      .attr('stroke-width', 1.5)
       .attr('stroke', ([label,]) => labeledColors[label])
       .attr('fill', 'white')
   dotsGroupsSelection.exit().remove()
@@ -473,6 +509,7 @@ function arrangeTooltipLines(lines, labels, scales, data, formatX, formatY, tran
       .attr('y', scales.y(data.y) - 7)
       .text(formatY ? formatY(data.y) : data.y)
 }
+
 </script>
 
 <style>
@@ -505,5 +542,11 @@ function arrangeTooltipLines(lines, labels, scales, data, formatX, formatY, tran
   stroke-width: 1px;
   pointer-events: none;
   stroke: black;
+}
+
+.area {
+  stroke-width: 1px;
+  stroke: black;
+  opacity: 0.4;
 }
 </style>
