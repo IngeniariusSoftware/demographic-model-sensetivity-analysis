@@ -15,8 +15,6 @@ export default {
       titleText: Selection,
       treemap: Selection,
       treemapRoot: Selection,
-      dataLabels: {left: Selection, right: Selection},
-      formatPercentage: (d) => `${d}%`
     }
   },
   props: {

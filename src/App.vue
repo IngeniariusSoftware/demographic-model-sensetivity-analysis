@@ -1,54 +1,78 @@
 <template>
   <div class="q-pa-md row q-gutter-md">
-    <PopulationTable
+    <SensitivityTable
         :country="selectedCountry"
         :countries="countries"
+        :year="selectedSensitivityYear"
+        :years="sensitivityYears"
+        :sensitivity-data="countryRangesSensitivityData"
+        @countrySelected="selectedCountry = $event"
+        @yearSelected="selectedSensitivityYear = $event"
+    ></SensitivityTable>
+    <q-card>
+      <q-card-section style="padding: 8px">
+        <Treemap
+            id="1"
+            title="Treemap"
+            :data="treemapData"
+            :labeled-colors="treemapLabeledColors"
+            :margin="{top: 17, right: 6, bottom: 0, left: 6}"
+            :width="width * 0.33"
+            :height="height * 0.73"
+        ></Treemap>
+      </q-card-section>
+    </q-card>
+    <div>
+      <q-card>
+        <q-card-section style="padding: 8px">
+          <Barplot
+              id="2"
+              title="Values range"
+              :labeled-axes="{x: 'Value name', y: 'Range'}"
+              :labeled-data="barplotSensitivityData"
+              :labeled-colors="barplotLabeledColors"
+              :margin="{top: 17, right: 12, bottom: 32, left: 29}"
+              :width="width * 0.61"
+              :height="height * 0.16"
+              :tick-number-y="5"
+          >
+          </Barplot>
+        </q-card-section>
+      </q-card>
+      <q-card style="margin-top: 10px">
+        <q-card-section style="padding: 8px">
+          <LinesChart
+              id="3"
+              title="Population"
+              :labeled-lines-data="countryPopulationGroupByYearData"
+              :labeled-ranges-data="countryRangesPredictedData"
+              :labeled-colors="populationLabeledColors"
+              :labeled-axes="{x: 'Year', y: 'Population'}"
+              :margin="margin"
+              :width="width * 0.61"
+              :height="height * 0.52"
+              :show-grid="false"
+              :format-x="x => x"
+              :format-y="y => Number(y).toLocaleString('fr-FR', {maximumFractionDigits: 3})"
+              :show-dots="false"
+              :selected-x="selectedYear"
+              :selected-label="selectedDataLabel"
+              tooltip-type="lines"
+              @xSelected="selectedYear = $event"
+              @labelSelected="selectedDataLabel = $event"
+              :tick-number-x="20"
+          ></LinesChart>
+        </q-card-section>
+      </q-card>
+    </div>
+    <PopulationTable
         :population="countryPopulationYearSelect"
         :min-year="minYear"
         :max-year="maxYear"
         :year="selectedYear"
         :step-year="stepYear"
-        @countrySelected="selectedCountry = $event"
         @yearSelected="selectedYear = $event"
     ></PopulationTable>
-    <q-card>
-      <q-card-section style="padding: 8px">
-        <Treemap
-            id="1"
-            :title="`Treemap`"
-            :data="treemapData"
-            :labeled-colors="treemapLabeledColors"
-            :margin="{top: 17, right: 12, bottom: 12, left: 12}"
-            :width="width * 0.33"
-            :height="height * 0.71"
-        ></Treemap>
-      </q-card-section>
-    </q-card>
-    <q-card style="margin-top: 15px">
-      <q-card-section style="padding: 8px">
-        <LinesChart
-            id="3"
-            title="Population"
-            :labeled-lines-data="countryPopulationGroupByYearData"
-            :labeled-ranges-data="countryRangesPredictedData"
-            :labeled-colors="populationLabeledColors"
-            :labeled-axes="{x: 'Year', y: 'Population'}"
-            :margin="margin"
-            :width="width * 0.6"
-            :height="height * 0.52"
-            :show-grid="false"
-            :format-x="x => x"
-            :format-y="y => Number(y).toLocaleString('fr-FR', {maximumFractionDigits: 3})"
-            :show-dots="false"
-            :selected-x="selectedYear"
-            :selected-label="selectedDataLabel"
-            tooltip-type="lines"
-            @xSelected="selectedYear = $event"
-            @labelSelected="selectedDataLabel = $event"
-            :tick-number-x="20"
-        ></LinesChart>
-      </q-card-section>
-    </q-card>
     <q-card>
       <q-card-section style="padding: 8px">
         <TwoValuesPyramid
@@ -59,7 +83,7 @@
             :labeled-axes="{x: 'Total Percentage', y: 'Age group'}"
             :margin="{top: 17, right: 12, bottom: 32, left: 34}"
             :width="width * 0.47"
-            :height="height * 0.95"
+            :height="height * 0.71"
             :tick-number-percentages="5"
             :format-x="x => FiveYearAges[x]"
             :format-y="y => Number(y).toLocaleString('fr-FR', {maximumFractionDigits: 3})"
@@ -77,13 +101,13 @@
               :labeled-axes="{x: 'Age group', y: 'Population'}"
               :margin="margin"
               :width="width * 0.47"
-              :height="height * 0.43"
+              :height="height * 0.315"
               :format-y="y => Number(y).toLocaleString('fr-FR', {maximumFractionDigits: 3})"
               :format-x="x => FiveYearAges[x]"
           ></LinesChart>
         </q-card-section>
       </q-card>
-      <q-card style="margin-top: 5px">
+      <q-card style="margin-top: 10px">
         <q-card-section>
           <LinesChart
               id="6"
@@ -93,7 +117,7 @@
               :labeled-axes="{x: 'Age group', y: 'Survival rate'}"
               :margin="{top: 17, right: 12, bottom: 32, left: 29}"
               :width="width * 0.47"
-              :height="height * 0.43"
+              :height="height * 0.315"
               :format-x="x => FiveYearAges[x]"
           ></LinesChart>
         </q-card-section>
@@ -103,37 +127,39 @@
 </template>
 
 <script>
+import populationDataCSV from '@/data/population.csv'
+import countriesRangesDataCSV from '@/data/countries_ranges.csv'
+import sensitivityDataCSV from '@/data/sensitivity_analysis.csv'
 import PopulationTable from './components/PopulationTable'
 import LinesChart from "@/components/LinesChart"
-import populationDataCSV from '@/data/population.csv'
-import sensitivityDataCSV from '@/data/sensitivity_analysis.csv'
-import countriesRangesDataCSV from '@/data/countries_ranges.csv'
-import {FiveYearAges} from "@/data/FiveYearAges"
 import TwoValuesPyramid from "@/components/TwoValuesPyramid"
 import Treemap from '@/components/Treemap'
-import {round, getSurvivalRate, predict} from '@/classes/populationModel'
+import SensitivityTable from "@/components/SensivityTable";
+import {FiveYearAges} from "@/data/FiveYearAges"
+import {getSurvivalRate, predict, round} from '@/classes/populationModel'
+import Barplot from "@/components/Barplot";
 
 export default {
   name: 'App',
   data() {
     const indexedPopulationCountries = this.indexByCountry(populationDataCSV)
-    const indexedSensitivityCountries = this.indexByCountry(sensitivityDataCSV)
     const indexedRangesCountries = this.indexByCountry(countriesRangesDataCSV)
+    const indexedSensitivityCountries = this.indexByCountry(sensitivityDataCSV)
     const countries = Object.keys(indexedPopulationCountries)
     const selectedCountry = countries[Math.floor(Math.random() * countries.length)]
     const stepYear = 5
     const ageSelect = {start: 2016, end: 2021}
     const margin = {top: 17, right: 12, bottom: 32, left: 80}
     const maxYear = 2096
-    const selectedSensitivityYears = 10
     const minYear = maxYear - (Math.floor((maxYear - populationDataCSV[0].year) / stepYear) * stepYear)
     const selectedYear = minYear
     const selectedDataLabel = 'My'
     const yearStart = populationDataCSV[0].year
+    const selectedSensitivityYear = 10
     return {
       populationDataCSV,
-      sensitivityDataCSV,
       countriesRangesDataCSV,
+      sensitivityDataCSV,
       selectedCountry,
       countries,
       indexedPopulationCountries,
@@ -147,16 +173,19 @@ export default {
       maxYear,
       selectedDataLabel,
       yearStart,
-      selectedSensitivityYears,
+      selectedSensitivityYear,
+      sensitivityYears: [10, 20, 50, 100],
       FiveYearAges,
       width: window.innerWidth,
       height: window.innerHeight
     }
   },
   components: {
+    Barplot,
     Treemap,
     TwoValuesPyramid,
     PopulationTable,
+    SensitivityTable,
     LinesChart
   },
   computed: {
@@ -182,7 +211,10 @@ export default {
       return {Female: '#ee7989', Male: '#4682B4', overFemale: '#c7223b', overMale: '#0d4979'}
     },
     treemapLabeledColors() {
-      return {female: '#ee7989', male: '#4682B4', _female_percentage: '#c7223b', _fertility: '#800049'}
+      return {female: '#ee7989', male: '#4682B4', female_percentage: '#c7223b', _fertility: '#800049'}
+    },
+    barplotLabeledColors() {
+      return {fertility: '#800049', female: '#ee7989', male: '#4682B4', female_percentage: '#c7223b'}
     },
     UNCountryPopulation() {
       return this.populationDataCSV.slice(this.populationCountryIndex.start, this.populationCountryIndex.end)
@@ -269,16 +301,29 @@ export default {
     predictedData() {
       return predict(this.countryPopulationYearSelect, this.maxYear)
     },
+    barplotSensitivityData() {
+      const data = this.countriesRangesDataCSV.slice(this.rangesCountryIndex.start, this.rangesCountryIndex.end)[0]
+      const labels = ['fertility', 'female_percentage', '50-54_female','35-39_female', '25-29_female', '10-14_female',
+        '0-4_female','50-54_male', '35-39_male', '25-29_male', '10-14_male', '0-4_male']
+      const result = labels.map(label => {
+            const arr = JSON.parse(data[label])
+            return {x: label, y: arr[1] - arr[0]}
+          }
+      )
+
+      return [['female_percentage', result.slice(1, 2)], ['male', result.slice(7)], ['female', result.slice(2, 7)],
+        ['fertility', result.slice(0, 1)]]
+    },
     treemapData() {
       const data = this.sensitivityDataCSV.slice(this.sensitivityCountryIndex.start, this.sensitivityCountryIndex.end)
-      const datum = data.filter(d => d['years'] === this.selectedSensitivityYears)[0]
+      const datum = data.filter(d => d['years'] === this.selectedSensitivityYear)[0]
       return [
         {id: 'root'},
         {id: 'female', parentID: 'root'},
         {id: 'male', parentID: 'root'},
-        {id: '_female_percentage', parentID: 'root'},
+        {id: 'female_percentage', parentID: 'root'},
         {id: '_fertility', parentID: 'root'},
-        {id: 'female_%', parentID: '_female_percentage', value: datum['female_percentage']},
+        {id: 'female_%', parentID: 'female_percentage', value: datum['female_percentage']},
         {id: '0-4 F', parentID: 'female', value: datum['0-4_female']},
         {id: '10-14 F', parentID: 'female', value: datum['10-14_female']},
         {id: '25-29 F', parentID: 'female', value: datum['25-29_female']},
@@ -292,12 +337,35 @@ export default {
         {id: 'fertility', parentID: '_fertility', value: datum['fertility']},
       ]
     },
+    countryRangesSensitivityData() {
+      let data = this.countriesRangesDataCSV.slice(this.rangesCountryIndex.start, this.rangesCountryIndex.end)
+      data[0]['years'] = '-'
+      return data.concat(this.sensitivityDataCSV.slice(this.sensitivityCountryIndex.start, this.sensitivityCountryIndex.end))
+    },
     countryRangesPredictedData() {
       const data = this.countriesRangesDataCSV.slice(this.rangesCountryIndex.start, this.rangesCountryIndex.end)[0]
       const fertility = JSON.parse(data['fertility'])
       const female_percentage = JSON.parse(data['female_percentage'])
-      const minPredict = this.countryPopulationYearSelect.slice(2, 4).concat(predict(this.countryPopulationYearSelect, this.maxYear, fertility[0], female_percentage[0]))
-      const maxPredict = this.countryPopulationYearSelect.slice(2, 4).concat(predict(this.countryPopulationYearSelect, this.maxYear, fertility[1], female_percentage[1]))
+      const minFemaleSurvivalRates = []
+      const maxFemaleSurvivalRates = []
+      const minMaleSurvivalRates = []
+      const maxMaleSurvivalRates = []
+      Object.entries(data).forEach(([key, value]) => {
+        if (-1 < key.indexOf('_female')) {
+          const femaleSurvivalRates = JSON.parse(value.toString())
+          minFemaleSurvivalRates.push([key.replace('_female', ''), femaleSurvivalRates[0]])
+          maxFemaleSurvivalRates.push([key.replace('_female', ''), femaleSurvivalRates[1]])
+        } else if (-1 < key.indexOf('_male')) {
+          const maleSurvivalRates = JSON.parse(value.toString())
+          minMaleSurvivalRates.push([key.replace('_male', ''), maleSurvivalRates[0]])
+          maxMaleSurvivalRates.push([key.replace('_male', ''), maleSurvivalRates[1]])
+        }
+      })
+
+      const minPredict = this.countryPopulationYearSelect.slice(2, 4).concat(predict(this.countryPopulationYearSelect,
+          this.maxYear, fertility[0], female_percentage[0], minFemaleSurvivalRates, minMaleSurvivalRates))
+      const maxPredict = this.countryPopulationYearSelect.slice(2, 4).concat(predict(this.countryPopulationYearSelect,
+          this.maxYear, fertility[1], female_percentage[1], maxFemaleSurvivalRates, maxMaleSurvivalRates))
 
       const result = []
       for (let i = 0; i < minPredict.length; i += 2) {

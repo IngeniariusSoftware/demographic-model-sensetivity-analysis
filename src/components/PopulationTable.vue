@@ -26,7 +26,7 @@
           :step="stepYear"
           v-model="selectedYear"
           label-always
-          style="max-width: 900px;
+          style="max-width: 1400px;
           margin-top: 25px"/>
       <q-space/>
       <q-btn
@@ -35,25 +35,6 @@
           :icon="isPlaying ? 'pause' : 'play_arrow'"
           @click="isPlaying = !isPlaying"/>
       <q-space/>
-      <q-select
-          outlined
-          use-input
-          input-debounce="0"
-          @filter="onFilter"
-          @update:model-value="onUpdate"
-          style="width: 500px"
-          behavior="menu"
-          v-model="selectedCountry"
-          :options="countryOptions"
-      >
-        <template v-slot:no-option>
-          <q-item>
-            <q-item-section class="text-grey">
-              No results
-            </q-item-section>
-          </q-item>
-        </template>
-      </q-select>
     </template>
     <template v-slot:body="props">
       <q-tr :props="props">
@@ -200,8 +181,6 @@ import {fertilityAgeGroups, getBirthRates} from "@/classes/populationModel";
 export default {
   name: 'PopulationTable',
   props: {
-    country: {type: undefined, required: true},
-    countries: {type: Array, required: true, default: Array.prototype},
     population: {type: Array, required: true},
     minYear: {type: Number, required: true},
     maxYear: {type: Number, required: true},
@@ -209,13 +188,11 @@ export default {
     year: {type: Number, required: true}
   },
   data() {
-    return {columns: [], selectedCountry: '', countryOptions: [], selectedYear: 0, isPlaying: false}
+    return {columns: [], selectedYear: 0, isPlaying: false}
   },
   mounted() {
     this.generateColumns()
     this.selectedYear = this.year
-    this.selectedCountry = this.country
-    this.countryOptions = this.countries
     setInterval(this.increaseYear, 1200)
   },
   watch: {
@@ -263,25 +240,6 @@ export default {
         format: value => Number(value).toLocaleString('fr-FR', {maximumFractionDigits: 3}),
         sortable: true
       }))
-    },
-    onUpdate(value) {
-      if (this.countries.indexOf(value) > -1) {
-        this.$emit('countrySelected', value)
-      }
-    },
-    onFilter(value, update) {
-      if (value === '') {
-        update(() => {
-          this.countryOptions = this.countries
-        })
-
-        return
-      }
-
-      update(() => {
-        const val = value.toLowerCase()
-        this.countryOptions = this.countries.filter(v => v.toLowerCase().indexOf(val) > -1)
-      })
     },
     increaseYear() {
       if (this.isPlaying) {

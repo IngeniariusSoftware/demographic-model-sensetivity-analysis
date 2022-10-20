@@ -366,10 +366,8 @@ function addDots(group, scales, labeledData, labeledColors, radius, duration) {
       .attr('fill', 'white')
   dotsGroupsSelection.exit().remove()
 
-  dotsGroupsSelection = group.selectAll(dotsGroupID).data(labeledData)
-  const dotsSelection = dotsGroupsSelection.selectAll('circle').data(([, data]) => {
-    return data
-  })
+  dotsGroupsSelection = group.selectAll(dotsGroupID)
+  const dotsSelection = dotsGroupsSelection.selectAll('circle').data(([, data]) => data)
   dotsSelection.enter()
       .append('circle')
       .merge(dotsSelection)
@@ -391,7 +389,7 @@ function addTooltipDots(group, tooltip, scales, labeledData, labeledColors, labe
       .style('pointer-select', 'none')
   tooltipDotsGroupSelection.exit().remove()
 
-  tooltipDotsGroupSelection = group.selectAll(tooltipDotsGroupID).data(labeledData)
+  tooltipDotsGroupSelection = group.selectAll(tooltipDotsGroupID)
   const tooltipDotsSelection = tooltipDotsGroupSelection.selectAll('circle').data(([label, data]) => data.map(d => {
     return {x: d.x, y: d.y, color: labeledColors[label]}
   }))

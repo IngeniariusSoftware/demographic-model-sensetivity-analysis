@@ -47,13 +47,13 @@ function getSurvivalRates(femaleYearStartData, maleYearStartData, femaleYearEndD
     })
 
     if (femaleSurvivalRates) {
-        Object.entries(([age, value]) => {
+        femaleSurvivalRates.forEach(([age, value]) => {
             survivalRates[0][age] = value
         })
     }
 
     if (maleSurvivalRates) {
-        Object.entries(([age, value]) => {
+        maleSurvivalRates.forEach(([age, value]) => {
             survivalRates[1][age] = value
         })
     }
