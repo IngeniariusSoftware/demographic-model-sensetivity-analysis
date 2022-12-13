@@ -19,6 +19,7 @@
             :margin="{top: 17, right: 6, bottom: 0, left: 6}"
             :width="width * 0.33"
             :height="height * 0.73"
+            :transition-duration="0"
         ></Treemap>
       </q-card-section>
     </q-card>
@@ -130,6 +131,7 @@
 import populationDataCSV from '@/data/population.csv'
 import countriesRangesDataCSV from '@/data/countries_ranges.csv'
 import sensitivityDataCSV from '@/data/sensitivity_analysis.csv'
+import countriesMinMaxDataCSV from '@/data/min_max_population.csv'
 import PopulationTable from './components/PopulationTable'
 import LinesChart from "@/components/LinesChart"
 import TwoValuesPyramid from "@/components/TwoValuesPyramid"
@@ -145,6 +147,7 @@ export default {
     const indexedPopulationCountries = this.indexByCountry(populationDataCSV)
     const indexedRangesCountries = this.indexByCountry(countriesRangesDataCSV)
     const indexedSensitivityCountries = this.indexByCountry(sensitivityDataCSV)
+    const indexedMinMaxCountries = this.indexByCountry(countriesMinMaxDataCSV)
     const countries = Object.keys(indexedPopulationCountries)
     const selectedCountry = countries[Math.floor(Math.random() * countries.length)]
     const stepYear = 5
@@ -160,11 +163,13 @@ export default {
       populationDataCSV,
       countriesRangesDataCSV,
       sensitivityDataCSV,
+      countriesMinMaxDataCSV,
       selectedCountry,
       countries,
       indexedPopulationCountries,
       indexedSensitivityCountries,
       indexedRangesCountries,
+      indexedMinMaxCountries,
       ageSelect,
       margin,
       selectedYear,
@@ -197,6 +202,9 @@ export default {
     },
     rangesCountryIndex() {
       return this.indexedRangesCountries[this.selectedCountry]
+    },
+    minMaxCountryIndex() {
+      return this.indexedMinMaxCountries[this.selectedCountry]
     },
     demographicProfileLabeledColors() {
       return {[this.ageSelect.start]: 'orange', [this.ageSelect.end]: 'red'}
@@ -303,8 +311,8 @@ export default {
     },
     barplotSensitivityData() {
       const data = this.countriesRangesDataCSV.slice(this.rangesCountryIndex.start, this.rangesCountryIndex.end)[0]
-      const labels = ['fertility', 'female_percentage', '50-54_female','35-39_female', '25-29_female', '10-14_female',
-        '0-4_female','50-54_male', '35-39_male', '25-29_male', '10-14_male', '0-4_male']
+      const labels = ['fertility', 'female_percentage', '50-54_female', '35-39_female', '25-29_female', '10-14_female',
+        '0-4_female', '50-54_male', '35-39_male', '25-29_male', '10-14_male', '0-4_male']
       const result = labels.map(label => {
             const arr = JSON.parse(data[label])
             return {x: label, y: arr[1] - arr[0]}
@@ -343,45 +351,12 @@ export default {
       return data.concat(this.sensitivityDataCSV.slice(this.sensitivityCountryIndex.start, this.sensitivityCountryIndex.end))
     },
     countryRangesPredictedData() {
-      const data = this.countriesRangesDataCSV.slice(this.rangesCountryIndex.start, this.rangesCountryIndex.end)[0]
-      const fertility = JSON.parse(data['fertility'])
-      const female_percentage = JSON.parse(data['female_percentage'])
-      const minFemaleSurvivalRates = []
-      const maxFemaleSurvivalRates = []
-      const minMaleSurvivalRates = []
-      const maxMaleSurvivalRates = []
-      Object.entries(data).forEach(([key, value]) => {
-        if (-1 < key.indexOf('_female')) {
-          const femaleSurvivalRates = JSON.parse(value.toString())
-          minFemaleSurvivalRates.push([key.replace('_female', ''), femaleSurvivalRates[0]])
-          maxFemaleSurvivalRates.push([key.replace('_female', ''), femaleSurvivalRates[1]])
-        } else if (-1 < key.indexOf('_male')) {
-          const maleSurvivalRates = JSON.parse(value.toString())
-          minMaleSurvivalRates.push([key.replace('_male', ''), maleSurvivalRates[0]])
-          maxMaleSurvivalRates.push([key.replace('_male', ''), maleSurvivalRates[1]])
-        }
+      const data = this.countriesMinMaxDataCSV.slice(this.minMaxCountryIndex.start, this.minMaxCountryIndex.end)
+      console.log(data)
+      const result = data.map(row => {
+        console.log(row)
+        return {x: row['year'], y0: row['min'], y1: row['max']}
       })
-
-      const minPredict = this.countryPopulationYearSelect.slice(2, 4).concat(predict(this.countryPopulationYearSelect,
-          this.maxYear, fertility[0], female_percentage[0], minFemaleSurvivalRates, minMaleSurvivalRates))
-      const maxPredict = this.countryPopulationYearSelect.slice(2, 4).concat(predict(this.countryPopulationYearSelect,
-          this.maxYear, fertility[1], female_percentage[1], maxFemaleSurvivalRates, maxMaleSurvivalRates))
-
-      const result = []
-      for (let i = 0; i < minPredict.length; i += 2) {
-        let yearMinPopulation = 0
-        const minFemale = minPredict[i]
-        const minMale = minPredict[i + 1]
-
-        let yearMaxPopulation = 0
-        const maxFemale = maxPredict[i]
-        const maxMale = maxPredict[i + 1]
-        Object.values(FiveYearAges).forEach(age => {
-          yearMinPopulation += minFemale[age] + minMale[age]
-          yearMaxPopulation += maxFemale[age] + maxMale[age]
-        })
-        result.push({x: minPredict[i].year, y0: round(yearMinPopulation), y1: round(yearMaxPopulation)})
-      }
 
       return [['MyArea', result]]
     }
